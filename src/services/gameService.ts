@@ -12,6 +12,9 @@ export interface GameImage {
   imageUrl: string;
   promptLength: number;
   hasSubmittedToday?: boolean; // For daily challenge mode
+  level?: number; // For progress mode
+  imageNumber?: number; // For progress mode
+  totalImagesInLevel?: number; // For progress mode
 }
 
 export interface GuessResult {
@@ -20,6 +23,7 @@ export interface GuessResult {
   score: number;
   exactMatches: string[]; // Words that exactly match the prompt
   similarMatches: string[]; // Words that are similar but not exact matches
+  success?: boolean; // For progress mode - true if score >= 80%
 }
 
 export interface User {
@@ -27,28 +31,40 @@ export interface User {
   username: string;
   casualScore: number;
   dailyScore: number;
+  progressLevels?: ProgressLevelState[];
+}
+
+export interface ProgressLevelState {
+  level: number;
+  completed: number; // Number of images guessed correctly
+  total: number; // Total images in level
+  guesses: number; // Number of guesses used
+  unlocked: boolean;
 }
 
 export interface LeaderboardEntry {
   rank: number;
   username: string;
   score: number;
+  avgGuesses?: number; // For progress mode
 }
 
 // Game modes
 export enum GameMode {
   CASUAL = "casual",
   DAILY = "daily",
+  PROGRESS = "progress",
 }
 
 // Placeholder API URL - replace with your actual API endpoint
 const API_URL = "http://localhost:3000/api";
 
 /**
- * API: GET /api/images/random or /api/images/daily
+ * API: GET /api/images/random or /api/images/daily or /api/images/progress/:level
  * 
  * Request:
  * - No body required for GET request
+ * - For progress mode, level is provided in URL path
  * 
  * Response:
  * {
@@ -56,11 +72,24 @@ const API_URL = "http://localhost:3000/api";
  *   imageUrl: string,    // URL to the image
  *   promptLength: number, // Length of the prompt in words
  *   hasSubmittedToday?: boolean // Only for daily mode - whether user has submitted today
+ *   level?: number,      // Only for progress mode - current level
+ *   imageNumber?: number, // Only for progress mode - image number in level
+ *   totalImagesInLevel?: number // Only for progress mode - total images in level
  * }
  */
-export const fetchGameImage = async (mode: GameMode = GameMode.CASUAL): Promise<GameImage> => {
+export const fetchGameImage = async (mode: GameMode = GameMode.CASUAL, level?: number): Promise<GameImage> => {
   try {
-    const response = await fetch(`${API_URL}/images/${mode === GameMode.DAILY ? 'daily' : 'random'}`);
+    let url = `${API_URL}/images/`;
+    
+    if (mode === GameMode.DAILY) {
+      url += 'daily';
+    } else if (mode === GameMode.PROGRESS && level) {
+      url += `progress/${level}`;
+    } else {
+      url += 'random';
+    }
+    
+    const response = await fetch(url);
     
     if (!response.ok) {
       throw new Error("Failed to fetch image");
@@ -81,6 +110,9 @@ export const fetchGameImage = async (mode: GameMode = GameMode.CASUAL): Promise<
       imageUrl: "/placeholder.svg",
       promptLength: 8,
       hasSubmittedToday: mode === GameMode.DAILY ? false : undefined,
+      level: mode === GameMode.PROGRESS ? level || 1 : undefined,
+      imageNumber: mode === GameMode.PROGRESS ? 1 : undefined,
+      totalImagesInLevel: mode === GameMode.PROGRESS ? 10 : undefined,
     };
   }
 };
@@ -93,7 +125,8 @@ export const fetchGameImage = async (mode: GameMode = GameMode.CASUAL): Promise<
  *   imageId: string,     // ID of the image being guessed
  *   guess: string,       // The user's guess text
  *   userId: string|null, // User ID if logged in, null if guest
- *   mode: string         // Game mode (casual or daily)
+ *   mode: string         // Game mode (casual, daily, or progress)
+ *   level?: number       // Level number (only for progress mode)
  * }
  * 
  * Response:
@@ -103,15 +136,26 @@ export const fetchGameImage = async (mode: GameMode = GameMode.CASUAL): Promise<
  *   score: number,             // Points awarded for the guess
  *   exactMatches: string[],    // Array of words that exactly match the prompt
  *   similarMatches: string[]   // Array of words that are similar but not exact matches
+ *   success?: boolean          // Only for progress mode - true if score >= 80%
  * }
  */
 export const submitGuess = async (
   imageId: string, 
   guess: string, 
   userId: string | null = null,
-  mode: GameMode = GameMode.CASUAL
+  mode: GameMode = GameMode.CASUAL,
+  level?: number
 ): Promise<GuessResult> => {
   try {
+    if (!guess.trim()) {
+      toast({
+        title: "Empty Guess",
+        description: "Input your guess before submitting",
+        variant: "destructive",
+      });
+      throw new Error("Empty guess");
+    }
+    
     const response = await fetch(`${API_URL}/guess`, {
       method: "POST",
       headers: {
@@ -122,6 +166,7 @@ export const submitGuess = async (
         guess,
         userId,
         mode,
+        level,
       }),
     });
     
@@ -132,6 +177,11 @@ export const submitGuess = async (
     return await response.json();
   } catch (error) {
     console.error("Error submitting guess:", error);
+    
+    if ((error as Error).message === "Empty guess") {
+      throw error; // Rethrow empty guess error
+    }
+    
     toast({
       title: "Error",
       description: "Failed to submit your guess. Please try again.",
@@ -152,6 +202,108 @@ export const submitGuess = async (
       score: Math.floor(mockSimilarity * 10),
       exactMatches,
       similarMatches,
+      success: mockSimilarity >= 80, // For progress mode
+    };
+  }
+};
+
+/**
+ * API: GET /api/progress/levels
+ * 
+ * Request:
+ * - userId as query parameter
+ * 
+ * Response:
+ * Array of:
+ * {
+ *   level: number,       // Level number
+ *   completed: number,   // Number of completed images in level
+ *   total: number,       // Total number of images in level
+ *   guesses: number,     // Number of guesses used
+ *   unlocked: boolean    // Whether level is unlocked
+ * }
+ */
+export const fetchProgressLevels = async (userId: string | null): Promise<ProgressLevelState[]> => {
+  try {
+    const response = await fetch(`${API_URL}/progress/levels?userId=${userId || 'guest'}`);
+    
+    if (!response.ok) {
+      throw new Error("Failed to fetch progress levels");
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching progress levels:", error);
+    toast({
+      title: "Error",
+      description: "Failed to load progress data. Please try again.",
+      variant: "destructive",
+    });
+    
+    // Return placeholder data for development
+    return Array.from({ length: 10 }, (_, i) => ({
+      level: i + 1,
+      completed: i === 0 ? 3 : i < 3 ? 0 : 0,
+      total: 10,
+      guesses: i === 0 ? 15 : 0,
+      unlocked: i < 3, // First 3 levels unlocked for testing
+    }));
+  }
+};
+
+/**
+ * API: POST /api/progress/complete
+ * 
+ * Request:
+ * {
+ *   userId: string|null, // User ID if logged in, null if guest
+ *   level: number,       // Completed level
+ *   guesses: number      // Total guesses used
+ * }
+ * 
+ * Response:
+ * {
+ *   success: boolean,    // Whether update was successful
+ *   nextLevel: number,   // Next level number
+ *   unlocked: boolean    // Whether next level was unlocked
+ * }
+ */
+export const completeLevel = async (
+  userId: string | null,
+  level: number,
+  guesses: number
+): Promise<{success: boolean, nextLevel: number, unlocked: boolean}> => {
+  try {
+    const response = await fetch(`${API_URL}/progress/complete`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        userId,
+        level,
+        guesses,
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error("Failed to update progress");
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error("Error updating progress:", error);
+    toast({
+      title: "Error",
+      description: "Failed to update your progress. Please try again.",
+      variant: "destructive",
+    });
+    
+    // Return placeholder result
+    return {
+      success: true,
+      nextLevel: level + 1,
+      unlocked: level < 10,
     };
   }
 };
@@ -170,7 +322,8 @@ export const submitGuess = async (
  *   id: string,          // User ID
  *   username: string,    // Username
  *   casualScore: number, // Score in casual mode
- *   dailyScore: number   // Score in daily challenge mode
+ *   dailyScore: number,  // Score in daily challenge mode
+ *   progressLevels: ProgressLevelState[] // Progress mode levels state
  * }
  */
 export const loginUser = async (username: string, password: string): Promise<User | null> => {
@@ -216,7 +369,8 @@ export const loginUser = async (username: string, password: string): Promise<Use
  *   id: string,          // User ID
  *   username: string,    // Username
  *   casualScore: number, // Initial score in casual mode (0)
- *   dailyScore: number   // Initial score in daily challenge mode (0)
+ *   dailyScore: number,  // Initial score in daily challenge mode (0)
+ *   progressLevels: ProgressLevelState[] // Initial progress mode levels state
  * }
  */
 export const registerUser = async (username: string, password: string): Promise<User | null> => {
@@ -253,14 +407,15 @@ export const registerUser = async (username: string, password: string): Promise<
  * 
  * Request:
  * - No body required for GET request
- * - mode in URL path (casual or daily)
+ * - mode in URL path (casual, daily, or progress)
  * 
  * Response:
  * Array of:
  * {
  *   rank: number,        // Position in leaderboard
  *   username: string,    // User's username
- *   score: number        // User's score in the specified mode
+ *   score: number,       // User's score in the specified mode (casual or daily)
+ *   avgGuesses: number   // Average guesses per level (only for progress mode)
  * }
  */
 export const fetchLeaderboard = async (mode: GameMode): Promise<LeaderboardEntry[]> => {
@@ -281,6 +436,15 @@ export const fetchLeaderboard = async (mode: GameMode): Promise<LeaderboardEntry
     });
     
     // Return placeholder data while in development
+    if (mode === GameMode.PROGRESS) {
+      return Array.from({ length: 20 }, (_, i) => ({
+        rank: i + 1,
+        username: `Player${i + 1}`,
+        score: 0,
+        avgGuesses: 5 + Math.floor(Math.random() * 20),
+      }));
+    }
+    
     return Array.from({ length: 20 }, (_, i) => ({
       rank: i + 1,
       username: `Player${i + 1}`,

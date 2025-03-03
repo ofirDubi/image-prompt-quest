@@ -11,18 +11,25 @@ import {
   Instagram, 
   MessageCircle,
   Link as LinkIcon,
-  Loader
+  Loader,
+  HelpCircle
 } from "lucide-react";
 import { 
   fetchGameImage, 
   submitGuess, 
   GameImage, 
   GuessResult, 
-  GameMode 
+  GameMode,
+  fetchProgressLevels,
+  ProgressLevelState,
+  completeLevel 
 } from "@/services/gameService";
 import { useAuth } from "@/contexts/AuthContext";
 import GameModeSelector from "./GameModeSelector";
 import DailyCountdown from "./DailyCountdown";
+import ProgressLevelSelector from "./ProgressLevelSelector";
+import LevelCompleteDialog from "./LevelCompleteDialog";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,11 +44,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 enum GameState {
   LOADING,
   GUESSING,
   RESULT,
+  LEVEL_SELECTION, // New state for progress mode
 }
 
 const ImagePromptGame: React.FC = () => {
@@ -55,14 +69,21 @@ const ImagePromptGame: React.FC = () => {
   const [hasSubmittedDaily, setHasSubmittedDaily] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  
+  // Progress mode states
+  const [progressLevels, setProgressLevels] = useState<ProgressLevelState[]>([]);
+  const [currentLevel, setCurrentLevel] = useState(1);
+  const [currentGuessCount, setCurrentGuessCount] = useState(0);
+  const [levelComplete, setLevelComplete] = useState(false);
+  const [guessesForLevel, setGuessesForLevel] = useState(0);
 
-  const loadNewRound = async (mode: GameMode = gameMode) => {
+  const loadNewRound = async (mode: GameMode = gameMode, level?: number) => {
     setGameState(GameState.LOADING);
     setGuess("");
     setResult(null);
     
     try {
-      const image = await fetchGameImage(mode);
+      const image = await fetchGameImage(mode, level);
       setCurrentImage(image);
       setGameState(GameState.GUESSING);
       
@@ -81,8 +102,35 @@ const ImagePromptGame: React.FC = () => {
     }
   };
 
+  const loadProgressLevels = async () => {
+    try {
+      const levels = await fetchProgressLevels(user?.id || null);
+      setProgressLevels(levels);
+      
+      // Find the first level with incomplete images or the highest unlocked level
+      const nextLevel = levels.find(level => level.unlocked && level.completed < level.total)?.level || 
+                        levels.filter(level => level.unlocked).pop()?.level || 1;
+                        
+      setCurrentLevel(nextLevel);
+    } catch (error) {
+      console.error("Failed to load progress levels:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load progress data. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSubmitGuess = async () => {
-    if (!currentImage || !guess.trim()) return;
+    if (!currentImage || !guess.trim()) {
+      toast({
+        title: "Empty Guess",
+        description: "Input your guess before submitting",
+        variant: "destructive",
+      });
+      return;
+    }
     
     // Check if user is guest and trying to submit to daily challenge
     if (gameMode === GameMode.DAILY && !user) {
@@ -96,17 +144,31 @@ const ImagePromptGame: React.FC = () => {
         currentImage.id, 
         guess, 
         user?.id || null,
-        gameMode
+        gameMode,
+        gameMode === GameMode.PROGRESS ? currentLevel : undefined
       );
       setResult(guessResult);
       setGameState(GameState.RESULT);
+      
+      // For progress mode, increment guess count
+      if (gameMode === GameMode.PROGRESS) {
+        setCurrentGuessCount(prev => prev + 1);
+        if (guessResult.success) {
+          // Check if this completes the level
+          if (currentImage.imageNumber === currentImage.totalImagesInLevel) {
+            const totalGuesses = guessesForLevel + currentGuessCount + 1;
+            setGuessesForLevel(totalGuesses);
+            setLevelComplete(true);
+            // Update user's level completion state
+            await completeLevel(user?.id || null, currentLevel, totalGuesses);
+            // Refresh levels data
+            await loadProgressLevels();
+          }
+        }
+      }
     } catch (error) {
       console.error("Failed to submit guess:", error);
-      toast({
-        title: "Error",
-        description: "Failed to submit your guess. Please try again.",
-        variant: "destructive",
-      });
+      // Error handling is already in submitGuess function
     } finally {
       setIsSubmitting(false);
     }
@@ -116,17 +178,47 @@ const ImagePromptGame: React.FC = () => {
     if (gameMode === GameMode.CASUAL) {
       setRoundCount(prev => prev + 1);
       loadNewRound();
-    } else {
+    } else if (gameMode === GameMode.DAILY) {
       // For daily mode, stay on the same image but allow them to play another round
       setGameState(GameState.GUESSING);
       setGuess("");
+    } else if (gameMode === GameMode.PROGRESS) {
+      // For progress mode, load the next image in the level if available
+      if (result?.success) {
+        if (currentImage?.imageNumber === currentImage?.totalImagesInLevel) {
+          // Level completed
+          setGameState(GameState.LEVEL_SELECTION);
+        } else {
+          // Next image in current level
+          setGuess("");
+          loadNewRound(GameMode.PROGRESS, currentLevel);
+        }
+      } else {
+        // If guess was not successful, allow retrying
+        setGameState(GameState.GUESSING);
+        setGuess("");
+      }
     }
+  };
+
+  const handleSelectLevel = (level: number) => {
+    setCurrentLevel(level);
+    setCurrentGuessCount(0);
+    setGuessesForLevel(0);
+    loadNewRound(GameMode.PROGRESS, level);
   };
 
   const handleShareResult = (method: 'facebook' | 'instagram' | 'whatsapp' | 'link') => {
     if (!result) return;
     
-    const shareText = `Round ${roundCount}: I scored ${result.score} points (${result.similarity.toFixed(1)}% similarity) in Guess the Image Prompt!`;
+    let shareText = '';
+    
+    if (gameMode === GameMode.PROGRESS && levelComplete) {
+      shareText = `I completed Level ${currentLevel} with ${guessesForLevel} guesses in "Guess the Image Prompt" game!`;
+    } else {
+      shareText = `Round ${roundCount}: I scored ${result.score} points (${result.similarity.toFixed(1)}% similarity) in Guess the Image Prompt!`;
+    }
+    
     const shareUrl = window.location.href;
     
     switch (method) {
@@ -157,8 +249,21 @@ const ImagePromptGame: React.FC = () => {
   const handleModeChange = (mode: GameMode) => {
     if (mode !== gameMode) {
       setGameMode(mode);
-      loadNewRound(mode);
+      
+      if (mode === GameMode.PROGRESS) {
+        loadProgressLevels().then(() => {
+          setGameState(GameState.LEVEL_SELECTION);
+        });
+      } else {
+        loadNewRound(mode);
+      }
     }
+  };
+
+  const getPromptLengthColor = (length: number) => {
+    if (length <= 4) return "text-green-500";
+    if (length <= 8) return "text-yellow-500";
+    return "text-red-500";
   };
 
   // Render colored guess with exact and similar matches
@@ -185,7 +290,13 @@ const ImagePromptGame: React.FC = () => {
 
   // Load first round when component mounts
   useEffect(() => {
-    loadNewRound();
+    if (gameMode === GameMode.PROGRESS) {
+      loadProgressLevels().then(() => {
+        setGameState(GameState.LEVEL_SELECTION);
+      });
+    } else {
+      loadNewRound(gameMode);
+    }
   }, []);
 
   const getScoreColor = () => {
@@ -199,8 +310,10 @@ const ImagePromptGame: React.FC = () => {
   const getGameModeDescription = () => {
     if (gameMode === GameMode.CASUAL) {
       return "Look at the AI-generated image and try to guess what prompt was used to create it. Play as many rounds as you want in casual mode!";
-    } else {
+    } else if (gameMode === GameMode.DAILY) {
       return "Every day we provide a new, hand-picked challenging image with a longer prompt. You have one chance per day to submit your guess and climb the daily leaderboard!";
+    } else {
+      return "Progress through 10 levels with 10 images each. You need to score at least 80% on each image to progress. The fewer guesses you use, the higher your ranking!";
     }
   };
 
@@ -212,11 +325,39 @@ const ImagePromptGame: React.FC = () => {
     );
   }
 
+  if (gameMode === GameMode.PROGRESS && gameState === GameState.LEVEL_SELECTION) {
+    return (
+      <div className="space-y-6">
+        <GameModeSelector activeMode={gameMode} onModeChange={handleModeChange} />
+        
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <div className="text-base text-amber-800">
+            <p className="font-medium">How to play:</p>
+            <p>{getGameModeDescription()}</p>
+          </div>
+        </div>
+        
+        <Card className="w-full max-w-3xl mx-auto shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-center">Progress Mode</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ProgressLevelSelector 
+              levels={progressLevels} 
+              onSelectLevel={handleSelectLevel}
+              currentLevel={currentLevel}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <GameModeSelector activeMode={gameMode} onModeChange={handleModeChange} />
       
-      <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start">
+      <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
         <div className="text-base text-amber-800">
           <p className="font-medium">How to play:</p>
           <p>{getGameModeDescription()}</p>
@@ -228,7 +369,10 @@ const ImagePromptGame: React.FC = () => {
           <CardTitle className="text-center">
             {gameMode === GameMode.CASUAL 
               ? `Round ${roundCount}: Guess The Image Prompt` 
-              : "Daily Challenge: Guess The Image Prompt"}
+              : gameMode === GameMode.DAILY
+                ? "Daily Challenge: Guess The Image Prompt"
+                : `Level ${currentLevel}: Image ${currentImage?.imageNumber} of ${currentImage?.totalImagesInLevel}`
+            }
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -243,8 +387,26 @@ const ImagePromptGame: React.FC = () => {
                 />
               </div>
 
-              <div className="text-center text-base text-slate-700">
-                This image was generated with a prompt that is {currentImage.promptLength} words long.
+              <div className="text-center text-base text-slate-700 flex justify-center items-center">
+                This image was generated with a prompt that is{" "}
+                <span className={`font-bold mx-1 ${getPromptLengthColor(currentImage.promptLength)}`}>
+                  {currentImage.promptLength}
+                </span>{" "}
+                words long.
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <HelpCircle className="w-4 h-4 text-slate-400 ml-1" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">
+                        The prompt length indicates how many words were used to create this image. 
+                        Shorter prompts (green) are generally easier to guess, while longer prompts (red) 
+                        are more difficult.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
 
               {hasSubmittedDaily && gameMode === GameMode.DAILY && gameState === GameState.GUESSING && (
@@ -298,6 +460,15 @@ const ImagePromptGame: React.FC = () => {
                     <div className="text-sm text-muted-foreground">
                       {result?.similarity.toFixed(1)}% similarity to the original prompt
                     </div>
+                    
+                    {gameMode === GameMode.PROGRESS && (
+                      <div className="mt-2 text-sm">
+                        {result?.success 
+                          ? <span className="text-green-500">Success! You can continue to the next image.</span>
+                          : <span className="text-amber-500">You need at least 80% similarity to progress. Try again!</span>
+                        }
+                      </div>
+                    )}
                   </div>
 
                   {gameMode === GameMode.DAILY && (
@@ -310,7 +481,7 @@ const ImagePromptGame: React.FC = () => {
         </CardContent>
         
         {gameState === GameState.RESULT && (
-          <CardFooter className="flex justify-between">
+          <CardFooter className="flex flex-col sm:flex-row justify-between gap-3">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline">
@@ -333,7 +504,15 @@ const ImagePromptGame: React.FC = () => {
               </DropdownMenuContent>
             </DropdownMenu>
             <Button onClick={handleNextRound}>
-              {gameMode === GameMode.CASUAL ? "Next Round" : "Try Again"} <ArrowRight className="w-4 h-4 ml-2" />
+              {gameMode === GameMode.CASUAL 
+                ? "Next Round" 
+                : gameMode === GameMode.DAILY 
+                  ? "Try Again" 
+                  : result?.success 
+                    ? "Next Image" 
+                    : "Try Again"
+              } 
+              <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </CardFooter>
         )}
@@ -355,6 +534,19 @@ const ImagePromptGame: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Level completion dialog */}
+      <LevelCompleteDialog
+        open={levelComplete}
+        onOpenChange={setLevelComplete}
+        level={currentLevel}
+        guesses={guessesForLevel}
+        onNextLevel={() => {
+          setLevelComplete(false);
+          setGameState(GameState.LEVEL_SELECTION);
+        }}
+        onShare={handleShareResult}
+      />
     </div>
   );
 };
