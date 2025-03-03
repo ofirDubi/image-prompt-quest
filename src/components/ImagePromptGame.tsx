@@ -10,7 +10,8 @@ import {
   Facebook, 
   Instagram, 
   MessageCircle,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Loader
 } from "lucide-react";
 import { 
   fetchGameImage, 
@@ -28,6 +29,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 enum GameState {
   LOADING,
@@ -44,6 +53,8 @@ const ImagePromptGame: React.FC = () => {
   const [roundCount, setRoundCount] = useState(1);
   const [gameMode, setGameMode] = useState<GameMode>(GameMode.CASUAL);
   const [hasSubmittedDaily, setHasSubmittedDaily] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   const loadNewRound = async (mode: GameMode = gameMode) => {
     setGameState(GameState.LOADING);
@@ -73,6 +84,13 @@ const ImagePromptGame: React.FC = () => {
   const handleSubmitGuess = async () => {
     if (!currentImage || !guess.trim()) return;
     
+    // Check if user is guest and trying to submit to daily challenge
+    if (gameMode === GameMode.DAILY && !user) {
+      setShowLoginPrompt(true);
+      return;
+    }
+    
+    setIsSubmitting(true);
     try {
       const guessResult = await submitGuess(
         currentImage.id, 
@@ -89,6 +107,8 @@ const ImagePromptGame: React.FC = () => {
         description: "Failed to submit your guess. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -141,6 +161,28 @@ const ImagePromptGame: React.FC = () => {
     }
   };
 
+  // Render colored guess with exact and similar matches
+  const renderColoredGuess = () => {
+    if (!result || !result.exactMatches || !result.similarMatches) {
+      return <div className="text-slate-700">{guess}</div>;
+    }
+
+    const words = guess.split(" ");
+    return (
+      <div className="text-slate-700">
+        {words.map((word, index) => {
+          if (result.exactMatches.includes(word.toLowerCase())) {
+            return <span key={index} className="bg-green-200 rounded px-1 mx-0.5">{word}</span>;
+          } else if (result.similarMatches.includes(word.toLowerCase())) {
+            return <span key={index} className="bg-yellow-200 rounded px-1 mx-0.5">{word}</span>;
+          } else {
+            return <span key={index} className="mx-0.5">{word}</span>;
+          }
+        })}
+      </div>
+    );
+  };
+
   // Load first round when component mounts
   useEffect(() => {
     loadNewRound();
@@ -154,6 +196,14 @@ const ImagePromptGame: React.FC = () => {
     return "text-red-500";
   };
 
+  const getGameModeDescription = () => {
+    if (gameMode === GameMode.CASUAL) {
+      return "Look at the AI-generated image and try to guess what prompt was used to create it. Play as many rounds as you want in casual mode!";
+    } else {
+      return "Every day we provide a new, hand-picked challenging image with a longer prompt. You have one chance per day to submit your guess and climb the daily leaderboard!";
+    }
+  };
+
   if (gameState === GameState.LOADING) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
@@ -165,6 +215,13 @@ const ImagePromptGame: React.FC = () => {
   return (
     <div className="space-y-6">
       <GameModeSelector activeMode={gameMode} onModeChange={handleModeChange} />
+      
+      <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start">
+        <div className="text-base text-amber-800">
+          <p className="font-medium">How to play:</p>
+          <p>{getGameModeDescription()}</p>
+        </div>
+      </div>
       
       <Card className="w-full max-w-2xl mx-auto shadow-lg">
         <CardHeader>
@@ -186,7 +243,7 @@ const ImagePromptGame: React.FC = () => {
                 />
               </div>
 
-              <div className="text-center text-base text-muted-foreground">
+              <div className="text-center text-base text-slate-700">
                 This image was generated with a prompt that is {currentImage.promptLength} words long.
               </div>
 
@@ -209,14 +266,24 @@ const ImagePromptGame: React.FC = () => {
                         if (e.key === "Enter") handleSubmitGuess();
                       }}
                     />
-                    <Button onClick={handleSubmitGuess}>Submit</Button>
+                    <Button onClick={handleSubmitGuess} disabled={isSubmitting}>
+                      {isSubmitting ? (
+                        <Loader className="w-4 h-4 animate-spin" />
+                      ) : (
+                        "Submit"
+                      )}
+                    </Button>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-4">
                   <div className="space-y-2 bg-slate-50 p-4 rounded-md border">
                     <div className="font-medium">Your guess:</div>
-                    <div className="text-slate-700">{guess}</div>
+                    {renderColoredGuess()}
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      <span className="inline-block bg-green-200 rounded px-1 mr-1">Green</span> = Exact match
+                      <span className="inline-block bg-yellow-200 rounded px-1 mx-1 ml-3">Yellow</span> = Similar match
+                    </div>
                   </div>
 
                   <div className="space-y-2 bg-slate-50 p-4 rounded-md border">
@@ -271,6 +338,23 @@ const ImagePromptGame: React.FC = () => {
           </CardFooter>
         )}
       </Card>
+
+      {/* Login prompt dialog for guests trying to submit to daily challenge */}
+      <Dialog open={showLoginPrompt} onOpenChange={setShowLoginPrompt}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sign in required</DialogTitle>
+            <DialogDescription>
+              You need to be signed in to submit guesses for the Daily Challenge.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setShowLoginPrompt(false)}>
+              Got it
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

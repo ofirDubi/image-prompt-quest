@@ -20,13 +20,13 @@ const GameModeSelector: React.FC<GameModeSelectorProps> = ({ activeMode, onModeC
         className="w-full max-w-md"
       >
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value={GameMode.CASUAL} className="flex items-center">
-            <Sparkles className="w-4 h-4 mr-2" />
-            Casual Play
+          <TabsTrigger value={GameMode.CASUAL} className="flex flex-col sm:flex-row items-center justify-center p-3">
+            <Sparkles className="w-4 h-4 mb-1 sm:mb-0 sm:mr-2" />
+            <span>Casual Play</span>
           </TabsTrigger>
-          <TabsTrigger value={GameMode.DAILY} className="flex items-center">
-            <CalendarIcon className="w-4 h-4 mr-2" />
-            Daily Challenge
+          <TabsTrigger value={GameMode.DAILY} className="flex flex-col sm:flex-row items-center justify-center p-3">
+            <CalendarIcon className="w-4 h-4 mb-1 sm:mb-0 sm:mr-2" />
+            <span>Daily Challenge</span>
           </TabsTrigger>
         </TabsList>
       </Tabs>

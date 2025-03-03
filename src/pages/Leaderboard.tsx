@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Trophy, ArrowLeft, CalendarIcon, Sparkles } from "lucide-react";
+import { Trophy, ArrowLeft, CalendarIcon, Sparkles, Loader } from "lucide-react";
 import { fetchLeaderboard, GameMode, LeaderboardEntry } from "@/services/gameService";
 import { Link } from "react-router-dom";
 
@@ -52,13 +52,13 @@ const Leaderboard: React.FC = () => {
           className="w-full"
         >
           <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
-            <TabsTrigger value={GameMode.CASUAL} className="flex items-center">
-              <Sparkles className="w-4 h-4 mr-2" />
-              Casual Mode
+            <TabsTrigger value={GameMode.CASUAL} className="flex flex-col sm:flex-row items-center justify-center p-3">
+              <Sparkles className="w-4 h-4 mb-1 sm:mb-0 sm:mr-2" />
+              <span>Casual Mode</span>
             </TabsTrigger>
-            <TabsTrigger value={GameMode.DAILY} className="flex items-center">
-              <CalendarIcon className="w-4 h-4 mr-2" />
-              Daily Challenge
+            <TabsTrigger value={GameMode.DAILY} className="flex flex-col sm:flex-row items-center justify-center p-3">
+              <CalendarIcon className="w-4 h-4 mb-1 sm:mb-0 sm:mr-2" />
+              <span>Daily Challenge</span>
             </TabsTrigger>
           </TabsList>
 
@@ -69,22 +69,25 @@ const Leaderboard: React.FC = () => {
                   <table className="w-full">
                     <thead className="bg-slate-50 border-b">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Rank</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Player</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Score</th>
+                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Rank</th>
+                        <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Player</th>
+                        <th className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Score</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
                       {isLoading ? (
                         <tr>
-                          <td colSpan={3} className="px-6 py-4 text-center text-sm text-slate-500">
-                            Loading leaderboard...
+                          <td colSpan={3} className="px-6 py-12 text-center">
+                            <div className="flex items-center justify-center">
+                              <Loader className="h-6 w-6 animate-spin text-primary mr-2" />
+                              <span className="text-sm text-slate-500">Loading leaderboard...</span>
+                            </div>
                           </td>
                         </tr>
                       ) : (
                         leaderboard.map((entry) => (
                           <tr key={entry.rank} className={entry.rank <= 3 ? "bg-amber-50" : ""}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm">
                               <div className="flex items-center">
                                 {entry.rank <= 3 && (
                                   <Trophy className={`w-4 h-4 mr-2 ${
@@ -97,10 +100,10 @@ const Leaderboard: React.FC = () => {
                                 </span>
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm">
                               {entry.username}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
+                            <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
                               {entry.score.toLocaleString()}
                             </td>
                           </tr>

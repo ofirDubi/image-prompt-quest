@@ -5,7 +5,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
-import { LogIn, UserPlus, User, LogOut } from "lucide-react";
+import { LogIn, UserPlus, User, LogOut, Loader } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const AuthButtons: React.FC = () => {
   const { user, login, register, logout, isLoading } = useAuth();
@@ -13,6 +14,8 @@ const AuthButtons: React.FC = () => {
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,10 +28,17 @@ const AuthButtons: React.FC = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      setPasswordError(true);
+      return;
+    }
+    setPasswordError(false);
+    
     if (await register(username, password)) {
       setIsRegisterOpen(false);
       setUsername("");
       setPassword("");
+      setConfirmPassword("");
     }
   };
 
@@ -45,8 +55,8 @@ const AuthButtons: React.FC = () => {
             Casual: {user.casualScore} | Daily: {user.dailyScore}
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={handleLogout}>
-          <LogOut className="w-4 h-4 mr-2" />
+        <Button variant="outline" size="sm" onClick={handleLogout} disabled={isLoading}>
+          {isLoading ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : <LogOut className="w-4 h-4 mr-2" />}
           Logout
         </Button>
       </div>
@@ -87,7 +97,7 @@ const AuthButtons: React.FC = () => {
               />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Logging in..." : "Login"}
+              {isLoading ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : "Login"}
             </Button>
           </form>
         </DialogContent>
@@ -113,6 +123,9 @@ const AuthButtons: React.FC = () => {
                 onChange={(e) => setUsername(e.target.value)}
                 required
               />
+              <p className="text-xs text-muted-foreground">
+                This username will be displayed on the leaderboard.
+              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="reg-password">Password</Label>
@@ -124,8 +137,25 @@ const AuthButtons: React.FC = () => {
                 required
               />
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="confirm-password">Confirm Password</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+            </div>
+            {passwordError && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  Passwords do not match. Please try again.
+                </AlertDescription>
+              </Alert>
+            )}
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating account..." : "Sign Up"}
+              {isLoading ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : "Sign Up"}
             </Button>
           </form>
         </DialogContent>
