@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,7 +54,7 @@ enum GameState {
   LOADING,
   GUESSING,
   RESULT,
-  LEVEL_SELECTION, // New state for progress mode
+  LEVEL_SELECTION,
 }
 
 const ImagePromptGame: React.FC = () => {
@@ -70,7 +69,6 @@ const ImagePromptGame: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   
-  // Progress mode states
   const [progressLevels, setProgressLevels] = useState<ProgressLevelState[]>([]);
   const [currentLevel, setCurrentLevel] = useState(1);
   const [currentGuessCount, setCurrentGuessCount] = useState(0);
@@ -107,7 +105,6 @@ const ImagePromptGame: React.FC = () => {
       const levels = await fetchProgressLevels(user?.id || null);
       setProgressLevels(levels);
       
-      // Find the first level with incomplete images or the highest unlocked level
       const nextLevel = levels.find(level => level.unlocked && level.completed < level.total)?.level || 
                         levels.filter(level => level.unlocked).pop()?.level || 1;
                         
@@ -132,7 +129,6 @@ const ImagePromptGame: React.FC = () => {
       return;
     }
     
-    // Check if user is guest and trying to submit to daily challenge
     if (gameMode === GameMode.DAILY && !user) {
       setShowLoginPrompt(true);
       return;
@@ -150,25 +146,20 @@ const ImagePromptGame: React.FC = () => {
       setResult(guessResult);
       setGameState(GameState.RESULT);
       
-      // For progress mode, increment guess count
       if (gameMode === GameMode.PROGRESS) {
         setCurrentGuessCount(prev => prev + 1);
         if (guessResult.success) {
-          // Check if this completes the level
           if (currentImage.imageNumber === currentImage.totalImagesInLevel) {
             const totalGuesses = guessesForLevel + currentGuessCount + 1;
             setGuessesForLevel(totalGuesses);
             setLevelComplete(true);
-            // Update user's level completion state
             await completeLevel(user?.id || null, currentLevel, totalGuesses);
-            // Refresh levels data
             await loadProgressLevels();
           }
         }
       }
     } catch (error) {
       console.error("Failed to submit guess:", error);
-      // Error handling is already in submitGuess function
     } finally {
       setIsSubmitting(false);
     }
@@ -179,22 +170,17 @@ const ImagePromptGame: React.FC = () => {
       setRoundCount(prev => prev + 1);
       loadNewRound();
     } else if (gameMode === GameMode.DAILY) {
-      // For daily mode, stay on the same image but allow them to play another round
       setGameState(GameState.GUESSING);
       setGuess("");
     } else if (gameMode === GameMode.PROGRESS) {
-      // For progress mode, load the next image in the level if available
       if (result?.success) {
         if (currentImage?.imageNumber === currentImage?.totalImagesInLevel) {
-          // Level completed
           setGameState(GameState.LEVEL_SELECTION);
         } else {
-          // Next image in current level
           setGuess("");
           loadNewRound(GameMode.PROGRESS, currentLevel);
         }
       } else {
-        // If guess was not successful, allow retrying
         setGameState(GameState.GUESSING);
         setGuess("");
       }
@@ -226,7 +212,6 @@ const ImagePromptGame: React.FC = () => {
         window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(shareText)}`, '_blank');
         break;
       case 'instagram':
-        // Instagram doesn't have a direct share URL, so we copy to clipboard
         navigator.clipboard.writeText(shareText + " " + shareUrl);
         toast({
           title: "Copied to clipboard",
@@ -266,7 +251,6 @@ const ImagePromptGame: React.FC = () => {
     return "text-red-500";
   };
 
-  // Render colored guess with exact and similar matches
   const renderColoredGuess = () => {
     if (!result || !result.exactMatches || !result.similarMatches) {
       return <div className="text-slate-700">{guess}</div>;
@@ -288,7 +272,6 @@ const ImagePromptGame: React.FC = () => {
     );
   };
 
-  // Load first round when component mounts
   useEffect(() => {
     if (gameMode === GameMode.PROGRESS) {
       loadProgressLevels().then(() => {
@@ -387,7 +370,7 @@ const ImagePromptGame: React.FC = () => {
                 />
               </div>
 
-              <div className="text-center text-base text-slate-700 flex justify-center items-center">
+              <div className="text-center text-lg text-slate-700 flex justify-center items-center">
                 This image was generated with a prompt that is{" "}
                 <span className={`font-bold mx-1 ${getPromptLengthColor(currentImage.promptLength)}`}>
                   {currentImage.promptLength}
@@ -395,8 +378,10 @@ const ImagePromptGame: React.FC = () => {
                 words long.
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger>
-                      <HelpCircle className="w-4 h-4 text-slate-400 ml-1" />
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="p-0 h-auto w-auto ml-1">
+                        <HelpCircle className="w-4 h-4 text-slate-400" />
+                      </Button>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p className="max-w-xs">
@@ -518,7 +503,6 @@ const ImagePromptGame: React.FC = () => {
         )}
       </Card>
 
-      {/* Login prompt dialog for guests trying to submit to daily challenge */}
       <Dialog open={showLoginPrompt} onOpenChange={setShowLoginPrompt}>
         <DialogContent>
           <DialogHeader>
@@ -535,7 +519,6 @@ const ImagePromptGame: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Level completion dialog */}
       <LevelCompleteDialog
         open={levelComplete}
         onOpenChange={setLevelComplete}

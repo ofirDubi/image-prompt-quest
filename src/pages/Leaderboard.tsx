@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Trophy, ArrowLeft, CalendarIcon, Sparkles, Loader } from "lucide-react";
+import { Trophy, ArrowLeft, CalendarIcon, Sparkles, Loader, Layers } from "lucide-react";
 import { fetchLeaderboard, GameMode, LeaderboardEntry } from "@/services/gameService";
 import { Link } from "react-router-dom";
 
@@ -51,18 +51,22 @@ const Leaderboard: React.FC = () => {
           onValueChange={(value) => setActiveTab(value as GameMode)}
           className="w-full"
         >
-          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
-            <TabsTrigger value={GameMode.CASUAL} className="flex flex-col sm:flex-row items-center justify-center p-3">
+          <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 mb-8">
+            <TabsTrigger value={GameMode.CASUAL} className="flex flex-col sm:flex-row items-center justify-center p-3 transition-colors hover:bg-primary/10">
               <Sparkles className="w-4 h-4 mb-1 sm:mb-0 sm:mr-2" />
-              <span>Casual Mode</span>
+              <span>Casual</span>
             </TabsTrigger>
-            <TabsTrigger value={GameMode.DAILY} className="flex flex-col sm:flex-row items-center justify-center p-3">
+            <TabsTrigger value={GameMode.DAILY} className="flex flex-col sm:flex-row items-center justify-center p-3 transition-colors hover:bg-primary/10">
               <CalendarIcon className="w-4 h-4 mb-1 sm:mb-0 sm:mr-2" />
-              <span>Daily Challenge</span>
+              <span>Daily</span>
+            </TabsTrigger>
+            <TabsTrigger value={GameMode.PROGRESS} className="flex flex-col sm:flex-row items-center justify-center p-3 transition-colors hover:bg-primary/10">
+              <Layers className="w-4 h-4 mb-1 sm:mb-0 sm:mr-2" />
+              <span>Progress</span>
             </TabsTrigger>
           </TabsList>
 
-          {[GameMode.CASUAL, GameMode.DAILY].map((mode) => (
+          {[GameMode.CASUAL, GameMode.DAILY, GameMode.PROGRESS].map((mode) => (
             <TabsContent key={mode} value={mode} className="mt-0">
               <div className="bg-white rounded-lg shadow overflow-hidden">
                 <div className="overflow-x-auto">
@@ -71,7 +75,9 @@ const Leaderboard: React.FC = () => {
                       <tr>
                         <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Rank</th>
                         <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Player</th>
-                        <th className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Score</th>
+                        <th className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          {mode === GameMode.PROGRESS ? "Avg. Guesses" : "Score"}
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
@@ -104,7 +110,9 @@ const Leaderboard: React.FC = () => {
                               {entry.username}
                             </td>
                             <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
-                              {entry.score.toLocaleString()}
+                              {mode === GameMode.PROGRESS 
+                                ? `${entry.avgGuesses?.toFixed(1) || "0.0"}`
+                                : entry.score.toLocaleString()}
                             </td>
                           </tr>
                         ))

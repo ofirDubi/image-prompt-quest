@@ -32,11 +32,12 @@ export interface User {
   casualScore: number;
   dailyScore: number;
   progressLevels?: ProgressLevelState[];
+  token?: string; // Added for new authentication method
 }
 
 export interface ProgressLevelState {
   level: number;
-  completed: number; // Number of images guessed correctly
+  completed: number; // Number of completed images in level
   total: number; // Total images in level
   guesses: number; // Number of guesses used
   unlocked: boolean;
@@ -59,12 +60,32 @@ export enum GameMode {
 // Placeholder API URL - replace with your actual API endpoint
 const API_URL = "http://localhost:3000/api";
 
+// Shorter timeout for development mode
+const FETCH_TIMEOUT = 5000; // 5 seconds in development mode
+
+/**
+ * Helper function to add timeout to fetch
+ */
+const fetchWithTimeout = async (url: string, options: RequestInit = {}, timeout = FETCH_TIMEOUT) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  
+  const response = await fetch(url, {
+    ...options,
+    signal: controller.signal
+  });
+  
+  clearTimeout(id);
+  return response;
+};
+
 /**
  * API: GET /api/images/random or /api/images/daily or /api/images/progress/:level
  * 
  * Request:
  * - No body required for GET request
  * - For progress mode, level is provided in URL path
+ * - Authorization header with user token if logged in
  * 
  * Response:
  * {
@@ -89,7 +110,14 @@ export const fetchGameImage = async (mode: GameMode = GameMode.CASUAL, level?: n
       url += 'random';
     }
     
-    const response = await fetch(url);
+    // Get user token from localStorage
+    const userToken = localStorage.getItem("token");
+    const headers: HeadersInit = {};
+    if (userToken) {
+      headers["Authorization"] = `Bearer ${userToken}`;
+    }
+    
+    const response = await fetchWithTimeout(url, { headers });
     
     if (!response.ok) {
       throw new Error("Failed to fetch image");
@@ -124,10 +152,10 @@ export const fetchGameImage = async (mode: GameMode = GameMode.CASUAL, level?: n
  * {
  *   imageId: string,     // ID of the image being guessed
  *   guess: string,       // The user's guess text
- *   userId: string|null, // User ID if logged in, null if guest
  *   mode: string         // Game mode (casual, daily, or progress)
  *   level?: number       // Level number (only for progress mode)
  * }
+ * Authorization: Bearer token (if logged in)
  * 
  * Response:
  * {
@@ -156,15 +184,35 @@ export const submitGuess = async (
       throw new Error("Empty guess");
     }
     
-    const response = await fetch(`${API_URL}/guess`, {
+    // Development mode - special case for "fail" guess
+    if (guess.toLowerCase().trim() === "fail") {
+      return {
+        originalPrompt: "This is a placeholder prompt for the 'fail' guess",
+        similarity: 0,
+        score: 0,
+        exactMatches: [],
+        similarMatches: [],
+        success: false
+      };
+    }
+    
+    // Get user token from localStorage
+    const userToken = localStorage.getItem("token");
+    const headers: HeadersInit = {
+      "Content-Type": "application/json"
+    };
+    
+    if (userToken) {
+      headers["Authorization"] = `Bearer ${userToken}`;
+    }
+    
+    const response = await fetchWithTimeout(`${API_URL}/guess`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify({
         imageId,
         guess,
-        userId,
+        userId, // Keep for backward compatibility
         mode,
         level,
       }),
@@ -211,7 +259,7 @@ export const submitGuess = async (
  * API: GET /api/progress/levels
  * 
  * Request:
- * - userId as query parameter
+ * - Authorization header with user token
  * 
  * Response:
  * Array of:
@@ -225,7 +273,14 @@ export const submitGuess = async (
  */
 export const fetchProgressLevels = async (userId: string | null): Promise<ProgressLevelState[]> => {
   try {
-    const response = await fetch(`${API_URL}/progress/levels?userId=${userId || 'guest'}`);
+    // Get user token from localStorage
+    const userToken = localStorage.getItem("token");
+    const headers: HeadersInit = {};
+    if (userToken) {
+      headers["Authorization"] = `Bearer ${userToken}`;
+    }
+    
+    const response = await fetchWithTimeout(`${API_URL}/progress/levels`, { headers });
     
     if (!response.ok) {
       throw new Error("Failed to fetch progress levels");
@@ -256,10 +311,10 @@ export const fetchProgressLevels = async (userId: string | null): Promise<Progre
  * 
  * Request:
  * {
- *   userId: string|null, // User ID if logged in, null if guest
  *   level: number,       // Completed level
  *   guesses: number      // Total guesses used
  * }
+ * Authorization: Bearer token
  * 
  * Response:
  * {
@@ -274,13 +329,20 @@ export const completeLevel = async (
   guesses: number
 ): Promise<{success: boolean, nextLevel: number, unlocked: boolean}> => {
   try {
-    const response = await fetch(`${API_URL}/progress/complete`, {
+    // Get user token from localStorage
+    const userToken = localStorage.getItem("token");
+    const headers: HeadersInit = {
+      "Content-Type": "application/json"
+    };
+    
+    if (userToken) {
+      headers["Authorization"] = `Bearer ${userToken}`;
+    }
+    
+    const response = await fetchWithTimeout(`${API_URL}/progress/complete`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify({
-        userId,
         level,
         guesses,
       }),
@@ -323,19 +385,20 @@ export const completeLevel = async (
  *   username: string,    // Username
  *   casualScore: number, // Score in casual mode
  *   dailyScore: number,  // Score in daily challenge mode
+ *   token: string,       // Authentication token
  *   progressLevels: ProgressLevelState[] // Progress mode levels state
  * }
  */
 export const loginUser = async (username: string, password: string): Promise<User | null> => {
   try {
-    const response = await fetch(`${API_URL}/auth/login`, {
+    const response = await fetchWithTimeout(`${API_URL}/auth/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         username,
-        password, // This is now a hashed password
+        password, // This is a hashed password
       }),
     });
     
@@ -343,7 +406,14 @@ export const loginUser = async (username: string, password: string): Promise<Use
       throw new Error("Login failed");
     }
     
-    return await response.json();
+    const user = await response.json();
+    
+    // Store the token in localStorage
+    if (user && user.token) {
+      localStorage.setItem("token", user.token);
+    }
+    
+    return user;
   } catch (error) {
     console.error("Error logging in:", error);
     toast({
@@ -370,19 +440,20 @@ export const loginUser = async (username: string, password: string): Promise<Use
  *   username: string,    // Username
  *   casualScore: number, // Initial score in casual mode (0)
  *   dailyScore: number,  // Initial score in daily challenge mode (0)
+ *   token: string,       // Authentication token
  *   progressLevels: ProgressLevelState[] // Initial progress mode levels state
  * }
  */
 export const registerUser = async (username: string, password: string): Promise<User | null> => {
   try {
-    const response = await fetch(`${API_URL}/auth/register`, {
+    const response = await fetchWithTimeout(`${API_URL}/auth/register`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         username,
-        password, // This is now a hashed password
+        password, // This is a hashed password
       }),
     });
     
@@ -390,7 +461,14 @@ export const registerUser = async (username: string, password: string): Promise<
       throw new Error("Registration failed");
     }
     
-    return await response.json();
+    const user = await response.json();
+    
+    // Store the token in localStorage
+    if (user && user.token) {
+      localStorage.setItem("token", user.token);
+    }
+    
+    return user;
   } catch (error) {
     console.error("Error registering:", error);
     toast({
@@ -408,6 +486,7 @@ export const registerUser = async (username: string, password: string): Promise<
  * Request:
  * - No body required for GET request
  * - mode in URL path (casual, daily, or progress)
+ * - Authorization header with user token (optional)
  * 
  * Response:
  * Array of:
@@ -420,7 +499,14 @@ export const registerUser = async (username: string, password: string): Promise<
  */
 export const fetchLeaderboard = async (mode: GameMode): Promise<LeaderboardEntry[]> => {
   try {
-    const response = await fetch(`${API_URL}/leaderboard/${mode}`);
+    // Get user token from localStorage
+    const userToken = localStorage.getItem("token");
+    const headers: HeadersInit = {};
+    if (userToken) {
+      headers["Authorization"] = `Bearer ${userToken}`;
+    }
+    
+    const response = await fetchWithTimeout(`${API_URL}/leaderboard/${mode}`, { headers });
     
     if (!response.ok) {
       throw new Error("Failed to fetch leaderboard");
@@ -451,4 +537,11 @@ export const fetchLeaderboard = async (mode: GameMode): Promise<LeaderboardEntry
       score: 1000 - i * 50,
     }));
   }
+};
+
+/**
+ * Logout user by removing the token from localStorage
+ */
+export const logoutUser = (): void => {
+  localStorage.removeItem("token");
 };

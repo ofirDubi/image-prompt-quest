@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, useContext, useEffect } from "react";
-import { User, loginUser, registerUser } from "@/services/gameService";
+import { User, loginUser, registerUser, logoutUser } from "@/services/gameService";
 import { toast } from "@/hooks/use-toast";
 
 // Simple password hashing function (in production, use a proper library)
@@ -39,6 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (e) {
         console.error("Failed to parse stored user:", e);
         localStorage.removeItem("user");
+        localStorage.removeItem("token");
       }
     }
     setIsLoading(false);
@@ -53,6 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (loggedInUser) {
         setUser(loggedInUser);
         localStorage.setItem("user", JSON.stringify(loggedInUser));
+        // Note: token is now stored in localStorage by the loginUser function
         toast({
           title: "Login Successful",
           description: `Welcome back, ${loggedInUser.username}!`,
@@ -74,6 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (newUser) {
         setUser(newUser);
         localStorage.setItem("user", JSON.stringify(newUser));
+        // Note: token is now stored in localStorage by the registerUser function
         toast({
           title: "Registration Successful",
           description: `Welcome, ${newUser.username}!`,
@@ -89,6 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setUser(null);
     localStorage.removeItem("user");
+    logoutUser(); // This now handles removing the token
     toast({
       title: "Logged Out",
       description: "You have been logged out successfully.",

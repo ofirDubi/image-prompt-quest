@@ -19,15 +19,24 @@ const GameModeSelector: React.FC<GameModeSelectorProps> = ({ activeMode, onModeC
         className="w-full max-w-md"
       >
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value={GameMode.CASUAL} className="flex flex-col sm:flex-row items-center justify-center p-2">
+          <TabsTrigger 
+            value={GameMode.CASUAL} 
+            className="flex flex-col sm:flex-row items-center justify-center p-2 transition-colors hover:bg-primary/10"
+          >
             <Sparkles className="w-4 h-4 mb-1 sm:mb-0 sm:mr-2" />
             <span className="text-xs sm:text-sm">Casual</span>
           </TabsTrigger>
-          <TabsTrigger value={GameMode.DAILY} className="flex flex-col sm:flex-row items-center justify-center p-2">
+          <TabsTrigger 
+            value={GameMode.DAILY} 
+            className="flex flex-col sm:flex-row items-center justify-center p-2 transition-colors hover:bg-primary/10"
+          >
             <CalendarIcon className="w-4 h-4 mb-1 sm:mb-0 sm:mr-2" />
             <span className="text-xs sm:text-sm">Daily</span>
           </TabsTrigger>
-          <TabsTrigger value={GameMode.PROGRESS} className="flex flex-col sm:flex-row items-center justify-center p-2">
+          <TabsTrigger 
+            value={GameMode.PROGRESS} 
+            className="flex flex-col sm:flex-row items-center justify-center p-2 transition-colors hover:bg-primary/10"
+          >
             <Layers className="w-4 h-4 mb-1 sm:mb-0 sm:mr-2" />
             <span className="text-xs sm:text-sm">Progress</span>
           </TabsTrigger>
