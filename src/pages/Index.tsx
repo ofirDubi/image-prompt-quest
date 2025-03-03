@@ -1,13 +1,24 @@
 
 import { Button } from "@/components/ui/button";
 import ImagePromptGame from "@/components/ImagePromptGame";
-import { Lightbulb } from "lucide-react";
+import { Lightbulb, Trophy } from "lucide-react";
+import AuthButtons from "@/components/AuthButtons";
+import { Link } from "react-router-dom";
 
 const Index = () => {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-gray-100">
       <header className="w-full py-6 px-4">
         <div className="container mx-auto max-w-4xl">
+          <div className="flex items-center justify-between mb-4">
+            <Button variant="ghost" asChild>
+              <Link to="/leaderboard" className="flex items-center">
+                <Trophy className="w-4 h-4 mr-2" />
+                Leaderboard
+              </Link>
+            </Button>
+            <AuthButtons />
+          </div>
           <h1 className="text-3xl font-bold text-center text-primary">Guess The Image Prompt</h1>
           <p className="text-center text-muted-foreground mt-2">
             Can you guess what prompt was used to generate these AI images?
@@ -18,7 +29,7 @@ const Index = () => {
       <main className="flex-1 container mx-auto max-w-4xl px-4 py-8">
         <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start">
           <Lightbulb className="text-amber-500 w-5 h-5 mt-0.5 mr-3 flex-shrink-0" />
-          <div className="text-sm text-amber-800">
+          <div className="text-base text-amber-800">
             <p className="font-medium">How to play:</p>
             <p>Look at the AI-generated image and try to guess what prompt was used to create it. You'll score points based on how similar your guess is to the original prompt!</p>
           </div>

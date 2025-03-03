@@ -5,8 +5,9 @@ import { toast } from "@/hooks/use-toast";
 export interface GameImage {
   id: string;
   imageUrl: string;
-  prompt: string;
+  prompt?: string; // Optional now as it won't always be returned
   promptLength: number;
+  hasSubmittedToday?: boolean; // For daily challenge mode
 }
 
 export interface GuessResult {
@@ -15,13 +16,32 @@ export interface GuessResult {
   score: number;
 }
 
+export interface User {
+  id: string;
+  username: string;
+  casualScore: number;
+  dailyScore: number;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  username: string;
+  score: number;
+}
+
+// Game modes
+export enum GameMode {
+  CASUAL = "casual",
+  DAILY = "daily",
+}
+
 // Placeholder API URL - replace with your actual API endpoint
 const API_URL = "http://localhost:3000/api";
 
 // Fetch a new round image
-export const fetchGameImage = async (): Promise<GameImage> => {
+export const fetchGameImage = async (mode: GameMode = GameMode.CASUAL): Promise<GameImage> => {
   try {
-    const response = await fetch(`${API_URL}/images/random`);
+    const response = await fetch(`${API_URL}/images/${mode === GameMode.DAILY ? 'daily' : 'random'}`);
     
     if (!response.ok) {
       throw new Error("Failed to fetch image");
@@ -40,14 +60,19 @@ export const fetchGameImage = async (): Promise<GameImage> => {
     return {
       id: "placeholder",
       imageUrl: "/placeholder.svg",
-      prompt: "a beautiful landscape with mountains and a lake",
       promptLength: 8,
+      hasSubmittedToday: mode === GameMode.DAILY ? false : undefined,
     };
   }
 };
 
 // Submit a guess and get back results
-export const submitGuess = async (imageId: string, guess: string): Promise<GuessResult> => {
+export const submitGuess = async (
+  imageId: string, 
+  guess: string, 
+  userId: string | null = null,
+  mode: GameMode = GameMode.CASUAL
+): Promise<GuessResult> => {
   try {
     const response = await fetch(`${API_URL}/guess`, {
       method: "POST",
@@ -57,6 +82,8 @@ export const submitGuess = async (imageId: string, guess: string): Promise<Guess
       body: JSON.stringify({
         imageId,
         guess,
+        userId,
+        mode,
       }),
     });
     
@@ -82,3 +109,90 @@ export const submitGuess = async (imageId: string, guess: string): Promise<Guess
     };
   }
 };
+
+// User authentication
+export const loginUser = async (username: string, password: string): Promise<User | null> => {
+  try {
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username,
+        password,
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error("Login failed");
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error("Error logging in:", error);
+    toast({
+      title: "Login Failed",
+      description: "Invalid username or password.",
+      variant: "destructive",
+    });
+    return null;
+  }
+};
+
+export const registerUser = async (username: string, password: string): Promise<User | null> => {
+  try {
+    const response = await fetch(`${API_URL}/auth/register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username,
+        password,
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error("Registration failed");
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error("Error registering:", error);
+    toast({
+      title: "Registration Failed",
+      description: "Username may already be taken.",
+      variant: "destructive",
+    });
+    return null;
+  }
+};
+
+// Fetch leaderboard data
+export const fetchLeaderboard = async (mode: GameMode): Promise<LeaderboardEntry[]> => {
+  try {
+    const response = await fetch(`${API_URL}/leaderboard/${mode}`);
+    
+    if (!response.ok) {
+      throw new Error("Failed to fetch leaderboard");
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching leaderboard:", error);
+    toast({
+      title: "Error",
+      description: "Failed to load leaderboard data.",
+      variant: "destructive",
+    });
+    
+    // Return placeholder data while in development
+    return Array.from({ length: 20 }, (_, i) => ({
+      rank: i + 1,
+      username: `Player${i + 1}`,
+      score: 1000 - i * 50,
+    }));
+  }
+};
+
