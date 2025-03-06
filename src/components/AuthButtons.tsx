@@ -9,7 +9,7 @@ import { LogIn, UserPlus, User, LogOut, Loader } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const AuthButtons: React.FC = () => {
-  const { user, login, register, logout, isLoading } = useAuth();
+  const { user, login, register, logout, isLoading, isGuest } = useAuth();
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [username, setUsername] = useState("");
@@ -46,7 +46,7 @@ const AuthButtons: React.FC = () => {
     logout();
   };
 
-  if (user) {
+  if (!isGuest) {
     return (
       <div className="flex items-center gap-4">
         <div className="text-sm">
