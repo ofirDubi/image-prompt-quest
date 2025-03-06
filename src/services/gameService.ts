@@ -58,7 +58,7 @@ export enum GameMode {
 }
 
 // Placeholder API URL - replace with your actual API endpoint
-const API_URL = "http://localhost:3000/api";
+const API_URL = "http://localhost:5000/api";
 
 // Shorter timeout for development mode
 const FETCH_TIMEOUT = 5000; // 5 seconds in development mode
