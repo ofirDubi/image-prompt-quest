@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Eye, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GameMode, GuessResult as GuessResultType } from "@/services/gameService";
