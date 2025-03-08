@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { Eye, RefreshCw, ArrowRight } from "lucide-react";
+import { Eye, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GameMode, GuessResult as GuessResultType } from "@/services/gameService";
 import GuessInput from "./GuessInput";
@@ -107,7 +107,7 @@ const GuessResult: React.FC<GuessResultProps> = ({
                 onClick={() => setShowPrompt(true)}
                 className="w-full mt-2"
               >
-                <Eye className="w-4 h-4 mr-2" /> Reveal Original Prompt
+                <Eye className="w-4 h-4 mr-2" /> Reveal Original Prompt and Try Another Image
               </Button>
             )}
           </div>
@@ -143,22 +143,17 @@ const GuessResult: React.FC<GuessResultProps> = ({
 
       <div className="flex flex-col sm:flex-row justify-between gap-3 mt-2">
         {showPrompt && (
-          <>
-            <Button variant="outline" onClick={onTryAgain}>
-              <RefreshCw className="w-4 h-4 mr-2" /> Try Again
-            </Button>
-            <Button onClick={onNextRound}>
-              {gameMode === GameMode.CASUAL 
-                ? "Next Round" 
-                : gameMode === GameMode.DAILY 
-                  ? "Try Again" 
-                  : result?.success 
-                    ? "Next Image" 
-                    : "Try Again"
-              } 
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </>
+          <Button onClick={onNextRound} className="w-full">
+            {gameMode === GameMode.CASUAL 
+              ? "Next Round" 
+              : gameMode === GameMode.DAILY 
+                ? "Try Again" 
+                : result?.success 
+                  ? "Next Image" 
+                  : "Try Again"
+            } 
+            <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
         )}
       </div>
     </div>
