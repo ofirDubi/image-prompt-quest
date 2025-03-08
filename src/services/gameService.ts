@@ -1,4 +1,3 @@
-
 import { toast } from "@/hooks/use-toast";
 
 /**
@@ -19,10 +18,10 @@ export interface GameImage {
 
 export interface GuessResult {
   originalPrompt: string;
-  similarity: number;
+  accuracy: number; // Renamed from similarity
   score: number;
   exactMatches: string[]; // Words that exactly match the prompt
-  similarMatches: string[]; // Words that are similar but not exact matches
+  similarMatches: [string, string][]; // Now tuples of [guess_word, prompt_word]
   success?: boolean; // For progress mode - true if score >= 80%
 }
 
@@ -160,10 +159,10 @@ export const fetchGameImage = async (mode: GameMode = GameMode.CASUAL, level?: n
  * Response:
  * {
  *   originalPrompt: string,    // The actual prompt used to generate the image
- *   similarity: number,        // Percentage of similarity (0-100)
+ *   accuracy: number,          // Percentage of accuracy (0-100) - renamed from similarity
  *   score: number,             // Points awarded for the guess
  *   exactMatches: string[],    // Array of words that exactly match the prompt
- *   similarMatches: string[]   // Array of words that are similar but not exact matches
+ *   similarMatches: [string, string][] // Array of tuples [guess_word, prompt_word] of similar matches
  *   success?: boolean          // Only for progress mode - true if score >= 80%
  * }
  */
@@ -188,7 +187,7 @@ export const submitGuess = async (
     if (guess.toLowerCase().trim() === "fail") {
       return {
         originalPrompt: "This is a placeholder prompt for the 'fail' guess",
-        similarity: 0,
+        accuracy: 0,
         score: 0,
         exactMatches: [],
         similarMatches: [],
@@ -237,20 +236,22 @@ export const submitGuess = async (
     });
     
     // Return a placeholder result while in development
-    const mockSimilarity = Math.random() * 100;
+    const mockAccuracy = Math.random() * 100;
     const words = guess.toLowerCase().split(" ");
     
     // Mock exact and similar matches for development
     const exactMatches = words.filter((_, i) => i % 3 === 0); // Every third word
-    const similarMatches = words.filter((_, i) => i % 3 === 1); // Every third word starting from second
+    const similarMatches: [string, string][] = words
+      .filter((_, i) => i % 3 === 1) // Every third word starting from second
+      .map(word => [word, word + 'ish']); // Create mock pairs
     
     return {
       originalPrompt: "a beautiful landscape with mountains and a lake",
-      similarity: mockSimilarity,
-      score: Math.floor(mockSimilarity * 10),
+      accuracy: mockAccuracy,
+      score: Math.floor(mockAccuracy * 10),
       exactMatches,
       similarMatches,
-      success: mockSimilarity >= 80, // For progress mode
+      success: mockAccuracy >= 80, // For progress mode
     };
   }
 };

@@ -1,17 +1,15 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { 
   Share2, 
-  ArrowRight, 
   Facebook, 
   Instagram, 
   MessageCircle,
   Link as LinkIcon,
-  Loader,
-  HelpCircle
+  Loader
 } from "lucide-react";
 import { 
   fetchGameImage, 
@@ -28,6 +26,9 @@ import GameModeSelector from "./GameModeSelector";
 import DailyCountdown from "./DailyCountdown";
 import ProgressLevelSelector from "./ProgressLevelSelector";
 import LevelCompleteDialog from "./LevelCompleteDialog";
+import ImageDisplay from "./ImageDisplay";
+import GuessInput from "./GuessInput";
+import GuessResultComponent from "./GuessResult";
 
 import {
   DropdownMenu,
@@ -43,12 +44,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 enum GameState {
   LOADING,
@@ -119,8 +114,8 @@ const ImagePromptGame: React.FC = () => {
     }
   };
 
-  const handleSubmitGuess = async () => {
-    if (!currentImage || !guess.trim()) {
+  const handleSubmitGuess = async (guessText: string) => {
+    if (!currentImage || !guessText.trim()) {
       toast({
         title: "Empty Guess",
         description: "Input your guess before submitting",
@@ -138,11 +133,12 @@ const ImagePromptGame: React.FC = () => {
     try {
       const guessResult = await submitGuess(
         currentImage.id, 
-        guess, 
+        guessText, 
         user?.id || null,
         gameMode,
         gameMode === GameMode.PROGRESS ? currentLevel : undefined
       );
+      setGuess(guessText);
       setResult(guessResult);
       setGameState(GameState.RESULT);
       
@@ -163,6 +159,12 @@ const ImagePromptGame: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleTryAgain = () => {
+    setGameState(GameState.GUESSING);
+    setGuess("");
+    setResult(null);
   };
 
   const handleNextRound = () => {
@@ -202,7 +204,7 @@ const ImagePromptGame: React.FC = () => {
     if (gameMode === GameMode.PROGRESS && levelComplete) {
       shareText = `I completed Level ${currentLevel} with ${guessesForLevel} guesses in "Guess the Image Prompt" game!`;
     } else {
-      shareText = `Round ${roundCount}: I scored ${result.score} points (${result.similarity.toFixed(1)}% similarity) in Guess the Image Prompt!`;
+      shareText = `Round ${roundCount}: I scored ${result.score} points (${result.accuracy.toFixed(1)}% accuracy) in Guess the Image Prompt!`;
     }
     
     const shareUrl = window.location.href;
@@ -245,33 +247,6 @@ const ImagePromptGame: React.FC = () => {
     }
   };
 
-  const getPromptLengthColor = (length: number) => {
-    if (length <= 4) return "text-green-500";
-    if (length <= 8) return "text-yellow-500";
-    return "text-red-500";
-  };
-
-  const renderColoredGuess = () => {
-    if (!result || !result.exactMatches || !result.similarMatches) {
-      return <div className="text-slate-700">{guess}</div>;
-    }
-
-    const words = guess.split(" ");
-    return (
-      <div className="text-slate-700">
-        {words.map((word, index) => {
-          if (result.exactMatches.includes(word.toLowerCase())) {
-            return <span key={index} className="bg-green-200 rounded px-1 mx-0.5">{word}</span>;
-          } else if (result.similarMatches.includes(word.toLowerCase())) {
-            return <span key={index} className="bg-yellow-200 rounded px-1 mx-0.5">{word}</span>;
-          } else {
-            return <span key={index} className="mx-0.5">{word}</span>;
-          }
-        })}
-      </div>
-    );
-  };
-
   useEffect(() => {
     if (gameMode === GameMode.PROGRESS) {
       loadProgressLevels().then(() => {
@@ -281,14 +256,6 @@ const ImagePromptGame: React.FC = () => {
       loadNewRound(gameMode);
     }
   }, []);
-
-  const getScoreColor = () => {
-    if (!result) return "text-gray-500";
-    const similarity = result.similarity;
-    if (similarity >= 80) return "text-green-500";
-    if (similarity >= 50) return "text-yellow-500";
-    return "text-red-500";
-  };
 
   const getGameModeDescription = () => {
     if (gameMode === GameMode.CASUAL) {
@@ -361,38 +328,7 @@ const ImagePromptGame: React.FC = () => {
         <CardContent className="space-y-4">
           {currentImage && (
             <div className="space-y-6">
-              <div className="aspect-square relative bg-slate-100 rounded-md overflow-hidden">
-                <img 
-                  src={currentImage.imageUrl} 
-                  alt="AI generated image"
-                  className="w-full h-full object-cover transition-opacity duration-300"
-                  loading="eager"
-                />
-              </div>
-
-              <div className="text-center text-lg text-slate-700 flex justify-center items-center">
-                This image was generated with a prompt that is{" "}
-                <span className={`font-bold mx-1 ${getPromptLengthColor(currentImage.promptLength)}`}>
-                  {currentImage.promptLength}
-                </span>{" "}
-                words long.
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="p-0 h-auto w-auto ml-1">
-                        <HelpCircle className="w-4 h-4 text-slate-400" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-xs">
-                        The prompt length indicates how many words were used to create this image. 
-                        Shorter prompts (green) are generally easier to guess, while longer prompts (red) 
-                        are more difficult.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
+              <ImageDisplay image={currentImage} />
 
               {hasSubmittedDaily && gameMode === GameMode.DAILY && gameState === GameState.GUESSING && (
                 <div className="bg-blue-50 p-3 rounded-md border border-blue-100 text-sm text-blue-800">
@@ -402,64 +338,20 @@ const ImagePromptGame: React.FC = () => {
               )}
 
               {gameState === GameState.GUESSING ? (
-                <div className="space-y-2">
-                  <div className="font-medium">What prompt do you think generated this image?</div>
-                  <div className="flex space-x-2">
-                    <Input
-                      value={guess}
-                      onChange={(e) => setGuess(e.target.value)}
-                      placeholder="Enter your guess here..."
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleSubmitGuess();
-                      }}
-                    />
-                    <Button onClick={handleSubmitGuess} disabled={isSubmitting}>
-                      {isSubmitting ? (
-                        <Loader className="w-4 h-4 animate-spin" />
-                      ) : (
-                        "Submit"
-                      )}
-                    </Button>
-                  </div>
-                </div>
+                <GuessInput 
+                  onSubmitGuess={handleSubmitGuess}
+                  isSubmitting={isSubmitting}
+                />
               ) : (
-                <div className="space-y-4">
-                  <div className="space-y-2 bg-slate-50 p-4 rounded-md border">
-                    <div className="font-medium">Your guess:</div>
-                    {renderColoredGuess()}
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      <span className="inline-block bg-green-200 rounded px-1 mr-1">Green</span> = Exact match
-                      <span className="inline-block bg-yellow-200 rounded px-1 mx-1 ml-3">Yellow</span> = Similar match
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 bg-slate-50 p-4 rounded-md border">
-                    <div className="font-medium">Original prompt:</div>
-                    <div className="text-slate-700">{result?.originalPrompt}</div>
-                  </div>
-
-                  <div className="text-center space-y-2 p-4">
-                    <div className="text-2xl font-bold">
-                      Your Score: <span className={getScoreColor()}>{result?.score}</span>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {result?.similarity.toFixed(1)}% similarity to the original prompt
-                    </div>
-                    
-                    {gameMode === GameMode.PROGRESS && (
-                      <div className="mt-2 text-sm">
-                        {result?.success 
-                          ? <span className="text-green-500">Success! You can continue to the next image.</span>
-                          : <span className="text-amber-500">You need at least 80% similarity to progress. Try again!</span>
-                        }
-                      </div>
-                    )}
-                  </div>
-
-                  {gameMode === GameMode.DAILY && (
-                    <DailyCountdown />
-                  )}
-                </div>
+                <GuessResultComponent 
+                  result={result}
+                  guess={guess}
+                  gameMode={gameMode}
+                  onTryAgain={handleTryAgain}
+                  onNextRound={handleNextRound}
+                  onNewGuess={handleSubmitGuess}
+                  isSubmitting={isSubmitting}
+                />
               )}
             </div>
           )}
@@ -488,17 +380,6 @@ const ImagePromptGame: React.FC = () => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button onClick={handleNextRound}>
-              {gameMode === GameMode.CASUAL 
-                ? "Next Round" 
-                : gameMode === GameMode.DAILY 
-                  ? "Try Again" 
-                  : result?.success 
-                    ? "Next Image" 
-                    : "Try Again"
-              } 
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
           </CardFooter>
         )}
       </Card>
