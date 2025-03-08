@@ -166,7 +166,7 @@ Authorization: Bearer <token>
 ```json
 {
   "originalPrompt": "string",  // The actual prompt used to generate the image
-  "similarity": number,        // Percentage of similarity (0-100)
+  "accuracy": number,           // Percentage of accuracy (0-100)
   "score": number,             // Points awarded for the guess
   "exactMatches": [            // Array of words that exactly match the prompt
     "string"
