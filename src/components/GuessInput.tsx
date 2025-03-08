@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader } from "lucide-react";
@@ -8,19 +8,25 @@ interface GuessInputProps {
   onSubmitGuess: (guess: string) => void;
   disabled?: boolean;
   isSubmitting: boolean;
+  previousGuess?: string;
 }
 
 const GuessInput: React.FC<GuessInputProps> = ({ 
   onSubmitGuess, 
   disabled = false,
-  isSubmitting
+  isSubmitting,
+  previousGuess = ""
 }) => {
-  const [guess, setGuess] = useState("");
+  const [guess, setGuess] = useState(previousGuess);
+  
+  // Update the guess state when previousGuess prop changes
+  useEffect(() => {
+    setGuess(previousGuess);
+  }, [previousGuess]);
 
   const handleSubmit = () => {
     if (guess.trim()) {
       onSubmitGuess(guess);
-      setGuess("");
     }
   };
 

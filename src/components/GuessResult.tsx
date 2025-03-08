@@ -26,6 +26,13 @@ const GuessResult: React.FC<GuessResultProps> = ({
 }) => {
   const [showPrompt, setShowPrompt] = useState(false);
   
+  // For Progress mode, automatically show prompt if success
+  useEffect(() => {
+    if (gameMode === GameMode.PROGRESS && result?.success) {
+      setShowPrompt(true);
+    }
+  }, [result, gameMode]);
+  
   const getScoreColor = () => {
     if (!result) return "text-gray-500";
     const accuracy = result.accuracy;
@@ -101,6 +108,12 @@ const GuessResult: React.FC<GuessResultProps> = ({
             <div className="font-medium">Original prompt:</div>
             {showPrompt ? (
               renderColoredPrompt()
+            ) : gameMode === GameMode.PROGRESS ? (
+              <div className="text-sm text-muted-foreground mt-2">
+                {result.success 
+                  ? "Prompt revealed automatically upon 80%+ accuracy."
+                  : "Get 80% or higher accuracy to reveal the prompt."}
+              </div>
             ) : (
               <Button 
                 variant="outline" 
@@ -137,6 +150,7 @@ const GuessResult: React.FC<GuessResultProps> = ({
           <GuessInput 
             onSubmitGuess={onNewGuess}
             isSubmitting={isSubmitting}
+            previousGuess={guess}
           />
         </div>
       )}
