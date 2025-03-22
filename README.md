@@ -1,3 +1,19 @@
+## To Run Docker
+docker build --tag 'christmascardmakers-site' .
+Then run docker run -d -p 3000:3000 christmascardmakers-site
+
+## To run entire webside docker -  
+
+    ssh root@MACHINE_IP
+    aws configure
+    cd /root
+    git clone https://github.com/webdevcody/single-vps-host
+    cd single-vps-host
+    place certs in ./certs/${SERVICE_NAME}.pem
+    place keys in ./private/${SERVICE_NAME}.pem
+    ./setup.sh
+    docker compose up -d
+
 # Welcome to your Lovable project
 
 ## Project info
