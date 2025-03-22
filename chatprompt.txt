@@ -1,0 +1,11 @@
+I am building a website with client in nodejs and server in python using flask.  The folder structure looks like this - 
+-- site
+---- client
+------ index.html
+---- server
+------ server_code.py
+---- data
+------ images
+The website sends a request to the server, and in the response receives a URL to an image. in the data/images folder.
+e.g the server sends the path /data/images/img1.png.
+I want to display the image in the client, but when i try doing so i get an error that the file cannot be found.

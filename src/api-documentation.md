@@ -6,7 +6,7 @@ This document outlines all the API endpoints used by the Guess The Image Prompt 
 ## Base URL
 
 ```
-http://localhost:3000/api
+http://localhost:4455/api
 ```
 
 ## Authentication
