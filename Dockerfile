@@ -9,7 +9,7 @@ RUN npm ci
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_ENV=production
+# ENV NODE_ENV=production
 # ARG LOCAL_PAYPAL_CLIENT_ID
 # RUN echo $LOCAL_PAYPAL_CLIENT_ID
 # ENV PAYPAL_CLIENT_ID=$LOCAL_PAYPAL_CLIENT_ID
@@ -27,29 +27,44 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_ENV=production
+# ENV NEXT_TELEMETRY_DISABLED=1
+# ENV NODE_ENV=production
 
-RUN apt-get update && apt-get install -y apt-transport-https
-RUN apt-get install -y curl
+# RUN apt-get update && apt-get install -y apt-transport-https
+# RUN apt-get install -y curl
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# RUN addgroup --system --gid 1001 nodejs
+# RUN adduser --system --uid 1001 nextjs
 
-COPY --from=builder /app/public ./public
+# COPY --from=builder /app/public ./public
 
-RUN mkdir .next
-RUN chown nextjs:nodejs .next
+# RUN mkdir .next
+# RUN chown nextjs:nodejs .next
 
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+# COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-USER nextjs
+# USER nextjs
 
+# EXPOSE 3000
+
+# ENV PORT=3000
+
+
+# Copy the built application from the builder stage
+COPY --from=base /app/dist ./dist
+
+# Expose the port the app runs on
 EXPOSE 3000
 
+# Set environment variables
+ENV NODE_ENV=production
 ENV PORT=3000
 
 ARG HOSTNAME
 
-CMD node server.js
+# Start the application
+CMD ["npx", "vite", "preview"]
+
+
+# CMD node server.js

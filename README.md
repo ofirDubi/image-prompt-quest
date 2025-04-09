@@ -1,6 +1,6 @@
 ## To Run Docker
-docker build --tag 'christmascardmakers-site' .
-Then run docker run -d -p 3000:3000 christmascardmakers-site
+docker build --tag 'gtp-site' .
+Then run docker run -d -p 3000:3000 gtp-site
 
 ## To run entire webside docker -  
 
