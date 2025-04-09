@@ -1,7 +1,5 @@
 FROM node:20-slim AS base
 
-FROM base AS builder
-
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
@@ -9,10 +7,7 @@ RUN npm ci
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
-# ENV NODE_ENV=production
-# ARG LOCAL_PAYPAL_CLIENT_ID
-# RUN echo $LOCAL_PAYPAL_CLIENT_ID
-# ENV PAYPAL_CLIENT_ID=$LOCAL_PAYPAL_CLIENT_ID
+ENV NODE_ENV=production
 
 # Env variables - probably don't need this - but i need to add replicate key here maybe
 ARG TABLE_NAME
@@ -23,36 +18,6 @@ ARG MAILING_LIST_ENDPOINT
 ARG MAILING_LIST_PASSWORD
 
 RUN npm run build
-
-FROM base AS runner
-WORKDIR /app
-
-# ENV NEXT_TELEMETRY_DISABLED=1
-# ENV NODE_ENV=production
-
-# RUN apt-get update && apt-get install -y apt-transport-https
-# RUN apt-get install -y curl
-
-# RUN addgroup --system --gid 1001 nodejs
-# RUN adduser --system --uid 1001 nextjs
-
-# COPY --from=builder /app/public ./public
-
-# RUN mkdir .next
-# RUN chown nextjs:nodejs .next
-
-# COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-# COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-# USER nextjs
-
-# EXPOSE 3000
-
-# ENV PORT=3000
-
-
-# Copy the built application from the builder stage
-COPY --from=base /app/dist ./dist
 
 # Expose the port the app runs on
 EXPOSE 3000
