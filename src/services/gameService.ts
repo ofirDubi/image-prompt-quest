@@ -31,7 +31,8 @@ export interface User {
   casualScore: number;
   dailyScore: number;
   progressLevels?: ProgressLevelState[];
-  token?: string; // Added for new authentication method
+  token?: string;
+  createdAt?: string; // Added createdAt property as optional
 }
 
 export interface ProgressLevelState {
