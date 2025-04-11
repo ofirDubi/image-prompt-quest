@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
-import { LogIn, UserPlus, User, LogOut, Loader } from "lucide-react";
+import { LogIn, UserPlus, LogOut, Loader } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const AuthButtons: React.FC = () => {
@@ -52,7 +52,7 @@ const AuthButtons: React.FC = () => {
         <div className="text-sm">
           <span className="font-medium">{user.username}</span>
           <div className="text-xs text-muted-foreground">
-            Casual: {user.casualScore} | Daily: {user.dailyScore}
+            Casual: {user.casualScore || 0} | Daily: {user.dailyScore || 0}
           </div>
         </div>
         <Button variant="outline" size="sm" onClick={handleLogout} disabled={isLoading}>
