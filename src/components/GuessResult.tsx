@@ -72,12 +72,12 @@ const GuessResult: React.FC<GuessResultProps> = ({
 
   const renderColoredGuess = () => {
     if (!result || !result.exactMatches) {
-      return <div className="text-slate-700">{guess}</div>;
+      return <div className="text-slate-700 break-words">{guess}</div>;
     }
 
     const words = guess.split(" ");
     return (
-      <div className="text-slate-700 break-words">
+      <div className="text-slate-700 break-words overflow-wrap-normal">
         {words.map((word, index) => {
           // Check if word is an exact match
           if (result.exactMatches.includes(word.toLowerCase())) {
@@ -101,7 +101,7 @@ const GuessResult: React.FC<GuessResultProps> = ({
     
     const words = result.originalPrompt.split(" ");
     return (
-      <div className="text-slate-700 break-words">
+      <div className="text-slate-700 break-words overflow-wrap-normal">
         {words.map((word, index) => {
           // Check if word is an exact match
           if (result.exactMatches.includes(word.toLowerCase())) {

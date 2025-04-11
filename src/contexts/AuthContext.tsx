@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { User, GameMode } from "@/services/gameService";
+import { User, GameMode, loginUser, registerUser, logoutUser } from "@/services/gameService";
+import { toast } from "@/hooks/use-toast";
 
 interface AuthContextType {
   user: User | null;
@@ -80,27 +81,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
   };
 
-  // Simulated authentication functions
+  // Authentication functions - now using the API functions from gameService
   const login = async (username: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
+      const loggedInUser = await loginUser(username, password);
       
-      // For demo purposes, any login attempt succeeds
-      // In a real app, you would validate credentials with your backend
-      const mockUser: User = {
-        id: Date.now().toString(),
-        username,
-        casualScore: 0,
-        dailyScore: 0,
-        createdAt: new Date().toISOString()
-      };
-      
-      setUser(mockUser);
-      return true;
+      if (loggedInUser) {
+        setUser(loggedInUser);
+        toast({
+          title: "Login Successful",
+          description: `Welcome back, ${loggedInUser.username}!`,
+        });
+        return true;
+      }
+      return false;
     } catch (error) {
       console.error("Login error:", error);
+      toast({
+        title: "Login Failed",
+        description: "Invalid username or password.",
+        variant: "destructive",
+      });
       return false;
     } finally {
       setIsLoading(false);
@@ -110,23 +112,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const register = async (username: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
+      const newUser = await registerUser(username, password);
       
-      // For demo purposes, registration always succeeds
-      // In a real app, you would create a new user in your backend
-      const newUser: User = {
-        id: Date.now().toString(),
-        username,
-        casualScore: 0,
-        dailyScore: 0,
-        createdAt: new Date().toISOString()
-      };
-      
-      setUser(newUser);
-      return true;
+      if (newUser) {
+        setUser(newUser);
+        toast({
+          title: "Registration Successful",
+          description: `Welcome, ${newUser.username}!`,
+        });
+        return true;
+      }
+      return false;
     } catch (error) {
       console.error("Registration error:", error);
+      toast({
+        title: "Registration Failed",
+        description: "Username may already be taken.",
+        variant: "destructive",
+      });
       return false;
     } finally {
       setIsLoading(false);
@@ -134,9 +137,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = () => {
+    logoutUser();
     setUser(null);
-    localStorage.removeItem("token");
-    
+    toast({
+      title: "Logged Out",
+      description: "You have been logged out successfully.",
+    });
   };
 
   const isGuest = !user;

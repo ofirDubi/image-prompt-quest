@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -144,7 +143,6 @@ const ImagePromptGame: React.FC = () => {
       setResult(guessResult);
       setGameState(GameState.RESULT);
       
-      // Update user score in AuthContext after a successful guess
       if (user && updateUserScore && (gameMode === GameMode.CASUAL || gameMode === GameMode.DAILY)) {
         updateUserScore(gameMode, guessResult.score);
       }
@@ -172,10 +170,7 @@ const ImagePromptGame: React.FC = () => {
     if (!currentImage) return;
     
     try {
-      // Notify server that user has revealed the prompt
       await revealPrompt(currentImage.id, user?.id || null);
-      
-      // Mark as having submitted for today
       setHasSubmittedDaily(true);
       
       toast({
@@ -264,15 +259,15 @@ const ImagePromptGame: React.FC = () => {
       setGameMode(mode);
       
       if (mode === GameMode.PROGRESS) {
-        // Check if user is logged in before accessing Progress Mode
         if (!user) {
           setShowProgressLoginPrompt(true);
-          return;
+          setGameMode(GameMode.CASUAL);
+          loadNewRound(GameMode.CASUAL);
+        } else {
+          loadProgressLevels().then(() => {
+            setGameState(GameState.LEVEL_SELECTION);
+          });
         }
-        
-        loadProgressLevels().then(() => {
-          setGameState(GameState.LEVEL_SELECTION);
-        });
       } else {
         loadNewRound(mode);
       }
@@ -302,6 +297,20 @@ const ImagePromptGame: React.FC = () => {
       return "Every day we provide a new, hand-picked challenging image with a longer prompt. You have one chance per day to submit your guess and climb the daily leaderboard!";
     } else {
       return "Progress through 10 levels with 10 images each. You need to score at least 80% on each image to progress. The fewer guesses you use, the higher your ranking!";
+    }
+  };
+
+  const getCardTitle = () => {
+    if (gameMode === GameMode.CASUAL) {
+      return `Round ${roundCount}: Guess The Image Prompt`;
+    } else if (gameMode === GameMode.DAILY) {
+      return "Daily Challenge: Guess The Image Prompt";
+    } else {
+      if (user) {
+        return `Level ${currentLevel}: Image ${currentImage?.imageNumber} of ${currentImage?.totalImagesInLevel}`;
+      } else {
+        return "Guess The Image Prompt";
+      }
     }
   };
 
@@ -355,12 +364,7 @@ const ImagePromptGame: React.FC = () => {
       <Card className="w-full max-w-2xl mx-auto shadow-lg">
         <CardHeader>
           <CardTitle className="text-center">
-            {gameMode === GameMode.CASUAL 
-              ? `Round ${roundCount}: Guess The Image Prompt` 
-              : gameMode === GameMode.DAILY
-                ? "Daily Challenge: Guess The Image Prompt"
-                : `Level ${currentLevel}: Image ${currentImage?.imageNumber} of ${currentImage?.totalImagesInLevel}`
-            }
+            {getCardTitle()}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
