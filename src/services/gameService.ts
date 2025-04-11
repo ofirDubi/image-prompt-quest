@@ -521,6 +521,11 @@ export const registerUser = async (username: string, password: string): Promise<
     // Store the token in localStorage
     if (user && user.token) {
       localStorage.setItem("token", user.token);
+      console.error("registered token - ", user.token);
+    
+    }else
+    {
+      console.error("Error: No token or user received during registration.", user);
     }
     
     return user;

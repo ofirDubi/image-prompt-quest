@@ -12,6 +12,11 @@ export default defineConfig({
     }
   },
   server: {
-    port: 8080
-  }
+    host: "::",
+    port: 3000,
+  },
+  preview: {
+    host: "::",
+    port: 3000,
+  },
 })
