@@ -4,6 +4,14 @@ import { Eye, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GameMode, GuessResult as GuessResultType } from "@/services/gameService";
 import GuessInput from "./GuessInput";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface GuessResultProps {
   result: GuessResultType | null;
@@ -13,6 +21,7 @@ interface GuessResultProps {
   onNextRound: () => void;
   onNewGuess: (guess: string) => void;
   isSubmitting: boolean;
+  onRevealPrompt?: () => Promise<void>;
 }
 
 const GuessResult: React.FC<GuessResultProps> = ({
@@ -22,9 +31,11 @@ const GuessResult: React.FC<GuessResultProps> = ({
   onTryAgain,
   onNextRound,
   onNewGuess,
-  isSubmitting
+  isSubmitting,
+  onRevealPrompt
 }) => {
   const [showPrompt, setShowPrompt] = useState(false);
+  const [showRevealWarning, setShowRevealWarning] = useState(false);
   
   // For Progress mode, automatically show prompt if success
   useEffect(() => {
@@ -41,6 +52,24 @@ const GuessResult: React.FC<GuessResultProps> = ({
     return "text-red-500";
   };
 
+  const handleRevealPrompt = async () => {
+    if (gameMode === GameMode.DAILY) {
+      setShowRevealWarning(true);
+    } else {
+      setShowPrompt(true);
+    }
+  };
+
+  const confirmRevealPrompt = async () => {
+    setShowRevealWarning(false);
+    
+    if (onRevealPrompt) {
+      await onRevealPrompt();
+    }
+    
+    setShowPrompt(true);
+  };
+
   const renderColoredGuess = () => {
     if (!result || !result.exactMatches) {
       return <div className="text-slate-700">{guess}</div>;
@@ -48,7 +77,7 @@ const GuessResult: React.FC<GuessResultProps> = ({
 
     const words = guess.split(" ");
     return (
-      <div className="text-slate-700">
+      <div className="text-slate-700 break-words">
         {words.map((word, index) => {
           // Check if word is an exact match
           if (result.exactMatches.includes(word.toLowerCase())) {
@@ -72,7 +101,7 @@ const GuessResult: React.FC<GuessResultProps> = ({
     
     const words = result.originalPrompt.split(" ");
     return (
-      <div className="text-slate-700">
+      <div className="text-slate-700 break-words">
         {words.map((word, index) => {
           // Check if word is an exact match
           if (result.exactMatches.includes(word.toLowerCase())) {
@@ -93,6 +122,16 @@ const GuessResult: React.FC<GuessResultProps> = ({
 
   return (
     <div className="space-y-4">
+      {!showPrompt && (
+        <div className="mt-4">
+          <GuessInput 
+            onSubmitGuess={onNewGuess}
+            isSubmitting={isSubmitting}
+            previousGuess={guess}
+          />
+        </div>
+      )}
+
       <div className="space-y-2 bg-slate-50 p-4 rounded-md border">
         <div className="font-medium">Your guess:</div>
         {renderColoredGuess()}
@@ -117,10 +156,11 @@ const GuessResult: React.FC<GuessResultProps> = ({
             ) : (
               <Button 
                 variant="outline" 
-                onClick={() => setShowPrompt(true)}
-                className="w-full mt-2"
+                onClick={handleRevealPrompt}
+                className="w-full mt-2 flex-wrap whitespace-normal h-auto py-2"
               >
-                <Eye className="w-4 h-4 mr-2" /> Reveal Original Prompt and Try Another Image
+                <Eye className="w-4 h-4 mr-2 flex-shrink-0" /> 
+                <span>Reveal Original Prompt and Try Another Image</span>
               </Button>
             )}
           </div>
@@ -145,16 +185,6 @@ const GuessResult: React.FC<GuessResultProps> = ({
         </>
       )}
 
-      {!showPrompt && (
-        <div className="mt-4">
-          <GuessInput 
-            onSubmitGuess={onNewGuess}
-            isSubmitting={isSubmitting}
-            previousGuess={guess}
-          />
-        </div>
-      )}
-
       <div className="flex flex-col sm:flex-row justify-between gap-3 mt-2">
         {showPrompt && (
           <Button onClick={onNextRound} className="w-full">
@@ -170,6 +200,25 @@ const GuessResult: React.FC<GuessResultProps> = ({
           </Button>
         )}
       </div>
+
+      <Dialog open={showRevealWarning} onOpenChange={setShowRevealWarning}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Warning</DialogTitle>
+            <DialogDescription>
+              After revealing the prompt, any further guesses will not be counted in your score for today's challenge.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowRevealWarning(false)}>
+              Return without revealing
+            </Button>
+            <Button onClick={confirmRevealPrompt}>
+              Reveal prompt
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

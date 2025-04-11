@@ -31,7 +31,7 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({ image }) => {
         />
       </div>
 
-      <div className="text-center text-lg text-slate-700 flex justify-center items-center">
+      <div className="text-center text-lg text-slate-700 flex flex-wrap justify-center items-center">
         This image was generated with a prompt that is{" "}
         <span
           className={`font-bold mx-1 ${getPromptLengthColor(image.promptLength)}`}

@@ -19,7 +19,8 @@ import {
   GameMode,
   fetchProgressLevels,
   ProgressLevelState,
-  completeLevel 
+  completeLevel,
+  revealPrompt
 } from "@/services/gameService";
 import { useAuth } from "@/contexts/AuthContext";
 import GameModeSelector from "./GameModeSelector";
@@ -53,7 +54,7 @@ enum GameState {
 }
 
 const ImagePromptGame: React.FC = () => {
-  const { user } = useAuth();
+  const { user, updateUserScore } = useAuth();
   const [gameState, setGameState] = useState<GameState>(GameState.LOADING);
   const [currentImage, setCurrentImage] = useState<GameImage | null>(null);
   const [guess, setGuess] = useState("");
@@ -63,6 +64,7 @@ const ImagePromptGame: React.FC = () => {
   const [hasSubmittedDaily, setHasSubmittedDaily] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [showProgressLoginPrompt, setShowProgressLoginPrompt] = useState(false);
   
   const [progressLevels, setProgressLevels] = useState<ProgressLevelState[]>([]);
   const [currentLevel, setCurrentLevel] = useState(1);
@@ -142,6 +144,11 @@ const ImagePromptGame: React.FC = () => {
       setResult(guessResult);
       setGameState(GameState.RESULT);
       
+      // Update user score in AuthContext after a successful guess
+      if (user && updateUserScore && (gameMode === GameMode.CASUAL || gameMode === GameMode.DAILY)) {
+        updateUserScore(gameMode, guessResult.score);
+      }
+      
       if (gameMode === GameMode.PROGRESS) {
         setCurrentGuessCount(prev => prev + 1);
         if (guessResult.success) {
@@ -158,6 +165,25 @@ const ImagePromptGame: React.FC = () => {
       console.error("Failed to submit guess:", error);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleRevealPrompt = async () => {
+    if (!currentImage) return;
+    
+    try {
+      // Notify server that user has revealed the prompt
+      await revealPrompt(currentImage.id, user?.id || null);
+      
+      // Mark as having submitted for today
+      setHasSubmittedDaily(true);
+      
+      toast({
+        title: "Prompt Revealed",
+        description: "Your score for today will not be updated with future guesses.",
+      });
+    } catch (error) {
+      console.error("Failed to notify server about prompt reveal:", error);
     }
   };
 
@@ -238,6 +264,12 @@ const ImagePromptGame: React.FC = () => {
       setGameMode(mode);
       
       if (mode === GameMode.PROGRESS) {
+        // Check if user is logged in before accessing Progress Mode
+        if (!user) {
+          setShowProgressLoginPrompt(true);
+          return;
+        }
+        
         loadProgressLevels().then(() => {
           setGameState(GameState.LEVEL_SELECTION);
         });
@@ -249,9 +281,15 @@ const ImagePromptGame: React.FC = () => {
 
   useEffect(() => {
     if (gameMode === GameMode.PROGRESS) {
-      loadProgressLevels().then(() => {
-        setGameState(GameState.LEVEL_SELECTION);
-      });
+      if (!user) {
+        setShowProgressLoginPrompt(true);
+        setGameMode(GameMode.CASUAL);
+        loadNewRound(GameMode.CASUAL);
+      } else {
+        loadProgressLevels().then(() => {
+          setGameState(GameState.LEVEL_SELECTION);
+        });
+      }
     } else {
       loadNewRound(gameMode);
     }
@@ -351,6 +389,7 @@ const ImagePromptGame: React.FC = () => {
                   onNextRound={handleNextRound}
                   onNewGuess={handleSubmitGuess}
                   isSubmitting={isSubmitting}
+                  onRevealPrompt={handleRevealPrompt}
                 />
               )}
             </div>
@@ -394,6 +433,22 @@ const ImagePromptGame: React.FC = () => {
           </DialogHeader>
           <DialogFooter>
             <Button onClick={() => setShowLoginPrompt(false)}>
+              Got it
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showProgressLoginPrompt} onOpenChange={setShowProgressLoginPrompt}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sign in required</DialogTitle>
+            <DialogDescription>
+              You need to register or sign in before playing in Progress Mode.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setShowProgressLoginPrompt(false)}>
               Got it
             </Button>
           </DialogFooter>

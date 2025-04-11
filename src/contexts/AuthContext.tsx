@@ -1,136 +1,77 @@
 
-import React, { createContext, useState, useContext, useEffect } from "react";
-import { User, loginUser, registerUser, logoutUser } from "@/services/gameService";
-import { toast } from "@/hooks/use-toast";
-
-// Simple password hashing function (in production, use a proper library)
-const hashPassword = (password: string): string => {
-  // This is a simple hash function for demonstration
-  // In a real application, use a proper hashing library like bcrypt
-  let hash = 0;
-  for (let i = 0; i < password.length; i++) {
-    const char = password.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  return hash.toString(36); // Convert to base 36 string
-};
-
-// Default guest user
-const guestUser: User = {
-  id: "guest",
-  username: "guest",
-  casualScore: 0,
-  dailyScore: 0,
-  token: "guest"
-};
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { User, GameMode } from "@/services/gameService";
 
 interface AuthContextType {
-  user: User;
-  isLoading: boolean;
-  isGuest: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
-  register: (username: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  user: User | null;
+  loading: boolean;
+  setUser: (user: User | null) => void;
+  updateUserScore: (mode: GameMode, score: number) => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  loading: true,
+  setUser: () => {},
+  updateUserScore: () => {},
+});
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User>(guestUser);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isGuest, setIsGuest] = useState(true);
+export const useAuth = () => useContext(AuthContext);
+
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored user session
+    // Check if we have user data in localStorage
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
       try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        setIsGuest(false);
-      } catch (e) {
-        console.error("Failed to parse stored user:", e);
+        setUser(JSON.parse(storedUser));
+      } catch (error) {
+        console.error("Error parsing stored user:", error);
+        // If there's an error parsing, clear the localStorage
         localStorage.removeItem("user");
-        localStorage.removeItem("token");
-        setUser(guestUser);
-        setIsGuest(true);
       }
-    } else {
-      setUser(guestUser);
-      setIsGuest(true);
     }
-    setIsLoading(false);
+    setLoading(false);
   }, []);
 
-  const login = async (username: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
-    try {
-      // Hash the password before sending to server
-      const hashedPassword = hashPassword(password);
-      const loggedInUser = await loginUser(username, hashedPassword);
-      if (loggedInUser) {
-        setUser(loggedInUser);
-        setIsGuest(false);
-        localStorage.setItem("user", JSON.stringify(loggedInUser));
-        // Note: token is now stored in localStorage by the loginUser function
-        toast({
-          title: "Login Successful",
-          description: `Welcome back, ${loggedInUser.username}!`,
-        });
-        return true;
-      }
-      return false;
-    } finally {
-      setIsLoading(false);
+  // Update user object in local storage when it changes
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem("user", JSON.stringify(user));
+    } else {
+      localStorage.removeItem("user");
     }
-  };
-
-  const register = async (username: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
-    try {
-      // Hash the password before sending to server
-      const hashedPassword = hashPassword(password);
-      const newUser = await registerUser(username, hashedPassword);
-      if (newUser) {
-        setUser(newUser);
-        setIsGuest(false);
-        localStorage.setItem("user", JSON.stringify(newUser));
-        // Note: token is now stored in localStorage by the registerUser function
-        toast({
-          title: "Registration Successful",
-          description: `Welcome, ${newUser.username}!`,
-        });
-        return true;
+  }, [user]);
+  
+  // Add function to update user score
+  const updateUserScore = (mode: GameMode, score: number) => {
+    if (!user) return;
+    
+    setUser(prevUser => {
+      if (!prevUser) return null;
+      
+      const updatedUser = { ...prevUser };
+      
+      if (mode === GameMode.CASUAL) {
+        updatedUser.casualScore = Math.max(updatedUser.casualScore || 0, score);
+      } else if (mode === GameMode.DAILY) {
+        updatedUser.dailyScore = Math.max(updatedUser.dailyScore || 0, score);
       }
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const logout = () => {
-    setUser(guestUser);
-    setIsGuest(true);
-    localStorage.removeItem("user");
-    logoutUser(); // This now handles removing the token
-    toast({
-      title: "Logged Out",
-      description: "You have been logged out successfully.",
+      
+      return updatedUser;
     });
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, isGuest, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, setUser, updateUserScore }}>
       {children}
     </AuthContext.Provider>
   );
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
 };

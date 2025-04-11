@@ -259,6 +259,57 @@ export const submitGuess = async (
 };
 
 /**
+ * API: POST /api/prompt/reveal
+ * 
+ * Request:
+ * {
+ *   imageId: string,     // ID of the image being revealed
+ * }
+ * Authorization: Bearer token (if logged in)
+ * 
+ * Response:
+ * {
+ *   success: boolean     // Whether the request was successful
+ * }
+ */
+export const revealPrompt = async (
+  imageId: string,
+  userId: string | null = null
+): Promise<{success: boolean}> => {
+  try {
+    // Get user token from localStorage
+    const userToken = localStorage.getItem("token");
+    const headers: HeadersInit = {
+      "Content-Type": "application/json"
+    };
+    
+    if (userToken) {
+      headers["Authorization"] = `Bearer ${userToken}`;
+    }
+    
+    const response = await fetchWithTimeout(`${API_URL}/prompt/reveal`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        imageId,
+        userId // Keep for backward compatibility
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error("Failed to notify server about prompt reveal");
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error("Error revealing prompt:", error);
+    
+    // Return success in development mode
+    return { success: true };
+  }
+};
+
+/**
  * API: GET /api/progress/levels
  * 
  * Request:
