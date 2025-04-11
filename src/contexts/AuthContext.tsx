@@ -135,6 +135,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem("token");
+    
   };
 
   const isGuest = !user;
